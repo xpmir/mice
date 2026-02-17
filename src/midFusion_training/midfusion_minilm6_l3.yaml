@@ -1,0 +1,55 @@
+id: mice_minilm6_l3+3
+title: "MidFusion MiniLM FineTunning experiment"
+description: Fine-tune a MidFusion model with MarginMSE loss. Starts from the checkpoint > microsoft/MiniLM-L12-H384-uncased
+    after results from drop_search experiment.
+     - Fuse after layer 3
+     - no drop
+
+pre_experiment: ../pre_experiment.py
+module: midFusion_training.experiment
+
+gpu: true
+seed: 12 # To mimick the HF xp 
+nb_repetitions: 5
+
+preprocessing:
+    requirements: duration=8h & cpu(cores=8)
+
+indexation:
+    requirements: duration=8h & cpu(cores=5)
+
+# Model configuration
+base: nreimers/MiniLM-L6-H384-uncased # jhu-clsp/ettin-encoder-32m  microsoft/MiniLM-L12-H384-uncased
+merge_layer: 3
+drop_layer: 0
+retriever: "" #BM25
+
+
+# This set of hyperparameters follows: https://github.com/huggingface/sentence-transformers/blob/9f76b5790fa8f0175ccdc27e41f9ae348f557144/examples/training/ms_marco/train_cross-encoder-v2.py
+learner:
+    optimization:
+        steps_per_epoch: 100
+        batch_size: 32
+        max_epochs: 1250 # Sum is 2_500_000. Multiplied by BS of 32, it gives 80M samples, which is a bit above the size of the dataset
+        num_warmup_steps: 5000 # Follows the original setup
+        weight_decay: 0.00
+        lr: 7e-6
+        eps: 1.0e-8
+    # sample_max: 2_000_000
+    max_grad_norm: 1.0
+    checkpoint_interval: 100
+    validation_interval: 100
+    validation_top_k: 100
+    loss: marginMSE
+    requirements: duration=2 days & cpu(cores=16) & cuda(mem=40G)
+
+retrieval:
+    requirements: duration=20h & cpu(cores=16) & cuda(mem=30G)
+    k: 1000
+    batch_size: 64
+
+evaluation:
+    test_max_topics: 0
+    all_datasets: true
+
+compare_with_baseline: true

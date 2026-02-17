@@ -1,0 +1,30 @@
+id: cross_scorer_evaluation
+title: cross_scorer_evaluation
+description: Experiment whose purpose is to evaluate HF Cross-scorers
+
+# pre_experiment: ../pre_experiment.py
+module: HF_eval.baselines
+
+gpu: true
+
+scorers_hf_id: 
+  - cross-encoder/ms-marco-MiniLM-L12-v2
+  - cross-encoder/ms-marco-MiniLM-L6-v2
+  - tomaarsen/ms-marco-ettin-150m-reranker
+  - tomaarsen/ms-marco-ettin-68m-reranker
+  - tomaarsen/ms-marco-ettin-32m-reranker
+  - tomaarsen/ms-marco-ettin-17m-reranker
+
+retrievers_hf_id:
+  - naver/splade-v3-distilbert
+
+indexation:
+    requirements: duration=8h & cpu(cores=5) & cuda(mem=24G)
+    sparse2bmp_requirements: duration=8h & cpu(cores=8)
+
+retrieval:
+  requirements: duration=20h & cpu(cores=16) & cuda(mem=30G)
+  batch_size: 128
+  k: 1000
+
+test_max_topics: 0

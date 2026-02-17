@@ -1,0 +1,26 @@
+\begin{table}[h]
+\centering
+\small
+\resizebox{\columnwidth}{!}{
+\begin{tabular}{rrc}
+\toprule
+\multirow{3}{*}{\rotatebox{90}{\textbf{MiniLM}}} 
+ & Base \hf & \texttt{microsoft/MiniLM-L12-H384-uncased}  \\
+ & Cross-Encoder \hf & \texttt{cross-encoder/ms-marco-MiniLM-L12-v2} \\
+ & Architecture & \textbf{Layers}=12, \textbf{Params}=33M, \textbf{Hidden}=384, \textbf{Heads}=12 \\
+\midrule
+\multirow{3}{*}{\rotatebox{90}{\textbf{Ettin-17}}} 
+ &  Base \hf & \texttt{jhu-clsp/ettin-encoder-17m} \\
+ & Cross-Encoder \hf & \texttt{tomaarsen/ms-marco-ettin-17m-reranker} \\
+ & Architecture & \textbf{Layers}=7, \textbf{Params}=17M, \textbf{Hidden}=256, \textbf{Heads}=4 \\
+\midrule
+\multirow{3}{*}{\rotatebox{90}{\textbf{Ettin-32}}} 
+ & Base \hf & \texttt{jhu-clsp/ettin-encoder-32m} \\
+ & Cross-Encoder \hf & \texttt{tomaarsen/ms-marco-ettin-32m-reranker} \\
+ & Architecture & \textbf{Layers}=10, \textbf{Params}=32M, \textbf{Hidden}=384, \textbf{Heads}=6 \\
+\bottomrule
+\end{tabular}
+}
+\caption{Model configurations and checkpoints used in experiments.}
+\label{tab:model-configs}
+\end{table}

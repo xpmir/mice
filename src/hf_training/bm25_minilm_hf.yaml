@@ -1,0 +1,44 @@
+id: hf_minilm_baseline
+title: "MiniLM-v2 finetuning reproduction"
+description: Reproduction of the fine-tuning of HF sentence-transformers library.
+
+    Original notebook -> https://github.com/huggingface/sentence-transformers/blob/master/examples/cross_encoder/training/distillation/train_cross_encoder_kd_margin_mse.py
+
+module: src.hf_training.train
+
+gpu: true
+seed: 12
+nb_repetitions: 10
+model_id: microsoft/MiniLM-L12-H384-uncased
+
+learner:
+    optimization:
+        num_epochs: 1
+        batch_size: 64
+        weight_decay: 0.00
+        lr: 8e-6
+        eps: 1.0e-8
+
+    validation_steps: 5000
+    validation_top_k: 1000
+    checkpoint_steps: 5000
+    logging_steps: 4000
+    sample_max: 2_000_000
+
+    max_grad_norm: 1.0
+    use_fp16: false
+    use_bf16: true
+    dataloader_num_workers: 4
+    requirements: duration=16h & cpu(cores=5) & cuda(mem=24G)
+
+test_size: 10_000
+
+evaluation:
+    evaluation:
+    test_max_topics: 0
+    all_datasets: true
+
+    retrieval:
+        k: 1000
+
+    save_model_requirements: duration=1h & cpu(cores=5)

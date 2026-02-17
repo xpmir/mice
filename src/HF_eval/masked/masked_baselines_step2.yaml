@@ -1,0 +1,72 @@
+id: eval_masked_step2
+title: "MiniLM-v2 masking experiment"
+description: 
+    Evaluate a trained MiniLM-v2 model on which we mask attention according to the 
+    masking scheme in step 2.
+
+module: HF_eval.masked.masked_baselines
+
+scorers_hf_id: 
+  - cross-encoder/ms-marco-MiniLM-L12-v2
+  - tomaarsen/ms-marco-ettin-32m-reranker
+  - tomaarsen/ms-marco-ettin-17m-reranker
+
+seed: 12 # To mimick the HF xp
+
+attn_patches:
+  # CLS can only send information to itself
+  - mask_attention_from:
+      - "query"
+      - "sep_1"
+      - "document"
+      - "sep_2"
+    mask_attention_to:
+      - "cls"
+  # Document can't use SEP1 for attention sink (nor CLS, handled above)
+  - mask_attention_from:
+      - "document"
+    mask_attention_to:
+      - "sep_1"
+  # Query can't use SEP2 for attention sink (nor CLS, handled above)
+  - mask_attention_from:
+      - "query"
+    mask_attention_to:
+      - "sep_2"
+  # Mask_01 - SEP can attend to nothing (remove their attention sinks to see the impact)
+  - mask_attention_from:
+      - "sep_1"
+    mask_attention_to:
+      - "cls"
+      - "query"
+      - "document"
+      - "sep_2"
+  - mask_attention_from:
+      - "sep_2"
+    mask_attention_to:
+      - "cls"
+      - "query"
+      - "sep_1"
+      - "document"
+  ### Step 1: Cut Attention from CLS to Document
+  - mask_attention_from:
+      - "cls"
+    mask_attention_to:
+      - "document"
+      - "sep_2"
+  ### Step 2: Cut Attention from CLS to Document
+  - mask_attention_from:
+      - "document"
+    mask_attention_to:
+      - "query"
+
+indexation:
+    requirements: duration=8h & cpu(cores=5)
+
+retrieval:
+    requirements: duration=20h & cpu(cores=16) & cuda(mem=30G)
+    batch_size: 64
+    k: 1000
+
+evaluation:
+    all_datasets: true
+    test_max_topics: 0

@@ -1,0 +1,4 @@
+[submodule "xpm-torch"]
+	path = xpm-torch
+	url = git@github.com:experimaestro/xpm-torch.git
+	branch = CrossEncoders

@@ -1,0 +1,9 @@
+*.egg-info
+**__pycache__/
+.venv/
+.vscode/
+hf_tests/
+Dev.ipynb
+.ipynb_checkpoints/
+runs/
+*.pickle

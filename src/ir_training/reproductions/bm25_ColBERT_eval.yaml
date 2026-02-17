@@ -1,0 +1,28 @@
+id: eval_ColBERT
+title: "Evaluation of ColBERTv2 checkpoint"
+description: Evaluate a ColBERTv2 checkpoint on the MS MARCO and BEIR
+
+module: ir_training.experiment_ColBERT
+
+gpu: true
+seed: 12 # To mimick the HF xp 
+nb_repetitions: 0
+
+
+colbert_base: answerdotai/answerai-colbert-small-v1 #colbert-ir/colbertv2.0
+retriever: "" #BM25
+
+preprocessing:
+    requirements: duration=8h & cpu(cores=8)
+
+indexation:
+    requirements: duration=8h & cpu(cores=5)
+
+retrieval:
+    requirements: duration=20h & cpu(cores=16) & cuda(mem=30G)
+    k: 1000
+    batch_size: 64
+
+evaluation:
+    test_max_topics: 0
+    all_datasets: true

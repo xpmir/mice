@@ -1,0 +1,52 @@
+[project]
+name = "franken-minilm"
+version = "0.2.0"
+description = "Add your description here"
+readme = "README.md"
+requires-python = ">=3.10,<3.11"
+dependencies = [
+    "datamaestro>=1.5.2",
+    "datamaestro-text>=2025.9.11",
+    "experimaestro-ir[anserini,neural]",
+    "ir-datasets",
+    "xpm-torch",
+    "pandas>=2.3.1",
+    "tensorboard>=2.20.0",
+    "pyserini>=0.21.0",
+    "faiss-cpu",
+    "sentence-transformers",
+    "datasets",
+    "accelerate>=1.11.0",
+    "lightning",
+    "torch<2.8.0",
+    "matplotlib>=3.10.8",
+    "pylate>=1.3.4",
+    "xpm-torch",
+]
+
+[tool.uv]
+package = true
+
+override-dependencies = [
+    "nmslib ; sys_platform == 'never'",
+]
+
+[tool.uv.sources]
+
+ir-datasets = { git = "https://github.com/bpiwowar/ir_datasets.git" }
+datamaestro = { git = "https://github.com/experimaestro/datamaestro" }
+datamaestro-text = { git = "https://github.com/experimaestro/datamaestro_text.git" }
+experimaestro-ir = { git = "https://github.com/MathVast/experimaestro-ir" }
+experimaestro = { git = "https://github.com/experimaestro/experimaestro-python.git", rev = "46b0ce2" }
+xpm-torch = { workspace = true }
+
+[tool.uv.workspace]
+members = [
+    "xpm-torch",
+]
+
+[dependency-groups]
+dev = [
+    "pytest>=8.4.2",
+    "notebook",
+]
