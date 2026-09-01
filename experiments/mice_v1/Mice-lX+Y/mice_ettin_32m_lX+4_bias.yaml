@@ -1,0 +1,24 @@
+id: train_mice_ettin32m_lX+4_bias
+title: "Mice-MiniLM Training"
+description:
+    Grid search the necessary number of contextualization layers
+    For Mice models with 4 interactions layers
+
+module: MICE.experiments.mice_training
+pre_experiment: pre_experiment
+parent: ../mice_ettin_32m_l6+4.yaml
+export_trained_models: false
+
+evaluation:
+    all_datasets: false
+    beir13: false
+    in_domain: true
+
+extra_attn_bias: true
+
+#### Params that are grid searched
+grid_search:
+    n_contextualization_layers:
+        values_range:
+            - 0
+            - 7 # 10 layers

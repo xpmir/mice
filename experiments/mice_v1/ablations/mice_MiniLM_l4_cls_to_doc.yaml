@@ -1,0 +1,28 @@
+id: train_mice_miniLM_abl_clstodoc_reversed
+title: "Mice-MiniLM Training"
+description:
+    try All combinations of boolean flags for Mice training
+
+module: MICE.experiments.mice_training
+# pre_experiment: pre_experiment
+parent: ../mice_MiniLM_l4.yaml
+
+# evaluation: #default = Minified tests
+#     all_datasets: false
+#     in_domain: true
+
+## Mice Model parameters
+base: microsoft/MiniLM-L12-H384-uncased
+n_contextualization_layers: 4
+n_interaction_layers: 3
+global_cls_token: false
+mask_query_to_cls: true
+
+
+#### Params that are grid searched
+grid_search:
+
+    mask_cls_to_doc:
+        values_list:
+            - true
+            - false

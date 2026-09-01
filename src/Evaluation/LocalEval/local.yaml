@@ -1,0 +1,35 @@
+id: local_model_evaluation
+title: Evaluation of Local Models
+description: Experiment to evaluate local checkpoints of cross-encoders
+
+module: Evaluation.LocalEval.experiment
+pre_experiment: ../pre_experiment
+
+gpu: true
+
+# root path for all models
+# model_root: /data/morand/experiments/cross_encoders/experiments/core_base_paper/dry-run/results/models
+model_root: /lustre/fsn1/projects/rech/npl/commun/cross_encoders/experiments/colbertNeg_mini/20260505_105350/results/models/
+
+# dir name for the model to evaluate
+models:
+  - cross-encoder-MiniLM-L12-infoNCE_Colbertv2Neg/encoder_path
+
+base: cross-encoder/ms-marco-MiniLM-L12-v2
+
+# Optional: HF ID for the first-stage retriever (if empty, uses BM25)
+retriever_hf_id: naver/splade-v3-distilbert
+
+indexation:
+  requirements: duration=8h & cpu(cores=4, mem=10G) & cuda(mem=10G)
+  sparse2bmp_requirements: duration=8h & cpu(cores=8)
+  batch_size: 128
+
+retrieval:
+  requirements: duration=10h & cpu(cores=4, mem=10G) & cuda(mem=10G)
+  batch_size: 128
+  k: 100
+
+# evaluation:
+#   test_max_topics: 100
+#   all_datasets: true

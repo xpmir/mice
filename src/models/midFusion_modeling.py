@@ -3,7 +3,7 @@ from typing import Optional
 import torch
 import torch.nn as nn
 
-from experimaestro import Constant, Param
+from experimaestro import field, Constant, Param
 from datamaestro_text.data.ir import TextItem
 from transformers import GradientCheckpointingLayer
 from xpmir.learning.context import TrainerContext
@@ -11,12 +11,11 @@ from xpmir.letor.records import BaseRecords
 from xpmir.rankers import LearnableScorer
 from configuration import PoolingMethod
 from xpm_torch.xpmModel import xpmTorchHubModule
-from xpm_torch.utils.logging import easylog
-from transformers.cache_utils import Cache, DynamicCache, EncoderDecoderCache
+from transformers.cache_utils import Cache
 from transformers.pytorch_utils import apply_chunking_to_forward
 import logging
 
-logger = easylog()
+logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
 
 # check if transformers is installed
@@ -36,8 +35,6 @@ try:
     )
     from transformers.models.modernbert_decoder.modeling_modernbert_decoder import (
         eager_attention_forward,
-        ModernBertDecoderRotaryEmbedding,
-        rotate_half,
     )
     from transformers.modeling_utils import ALL_ATTENTION_FUNCTIONS
 
@@ -53,31 +50,31 @@ class MidFusionCrossEncoder(xpmTorchHubModule, LearnableScorer):
     allow the query to attend to the document via cross-attention mechanisms.
     """
 
-    hf_id: Param[str] = "bert-base-uncased"
+    hf_id: Param[str] = field(default="bert-base-uncased", ignore_default=True)
     """Hugging Face checkpoint identifier that provides weights and config. Must be a BERT-like model."""
 
-    merge_layer: Param[int] = 6
+    n_contextualization_layers: Param[int] = field(default=6, ignore_default=True)
     """Mid-fusion index: encoder layers are split into bottom (independent) and top (cross-attention)"""
 
-    drop_layer: Param[int] = 0
+    drop_layer: Param[int] = field(default=0, ignore_default=True)
     """Layer at which to drop backbone layers"""
 
-    mask_cls_to_doc: Param[bool] = True
+    mask_cls_to_doc: Param[bool] = field(default=True, ignore_default=True)
     """Whether to mask the [CLS] token from attending to document tokens."""
 
-    mask_query_to_cls: Param[bool] = True
+    mask_query_to_cls: Param[bool] = field(default=True, ignore_default=True)
     """Whether to mask query tokens from attending to the [CLS] token (using it as a sink)"""
 
-    use_self_attention: Param[bool] = True
+    use_self_attention: Param[bool] = field(default=True, ignore_default=True)
     """Whether to use self-attention in the top layers along with cross-attention."""
 
-    freeze_base: Param[bool] = False
+    freeze_base: Param[bool] = field(default=False, ignore_default=True)
     """Whether to freeze the bottom layers during finetuning"""
 
-    random_top_layers: Param[bool] = False
+    random_top_layers: Param[bool] = field(default=False, ignore_default=True)
     """Whether to initialize top layers randomly instead of copying from backbone"""
 
-    compress_dim: Param[float] = 1.0
+    compress_dim: Param[float] = field(default=1.0, ignore_default=True)
     """Factor by which to divide the hidden dimensions of the top layers"""
 
     _version: Constant[int] = 2
@@ -96,12 +93,12 @@ class MidFusionCrossEncoder(xpmTorchHubModule, LearnableScorer):
         super().__initialize__(options)
 
         ### Gather all the components shared across implementations:
-        assert (
-            self.merge_layer > 0
-        ), "merge_layer must be > 0, otherwise no bottom layers exist"
-        assert not (
-            self.drop_layer and self.drop_layer < self.merge_layer
-        ), "drop_layer must be > merge_layer"
+        assert self.merge_layer > 0, (
+            "merge_layer must be > 0, otherwise no bottom layers exist"
+        )
+        assert not (self.drop_layer and self.drop_layer < self.merge_layer), (
+            "drop_layer must be > merge_layer"
+        )
 
         # 1. Load Base Configuration
         self.config = AutoConfig.from_pretrained(self.hf_id)
@@ -112,7 +109,7 @@ class MidFusionCrossEncoder(xpmTorchHubModule, LearnableScorer):
 
         # Enable decoder mode for the top layers configuration
         self.head_config = AutoConfig.from_pretrained(self.hf_id)
-     
+
         # Ensure attention implementation matches base config if not present
         if (
             not hasattr(self.head_config, "_attn_implementation")
@@ -180,11 +177,16 @@ class MiniLMMidFusionCrossEncoder(MidFusionCrossEncoder):
         self.head_config.is_decoder = True
         self.head_config.add_cross_attention = True
 
-
         if self.compress_dim > 1:
-            self.head_config.hidden_size = int(self.head_config.hidden_size / self.compress_dim)
-            self.head_config.intermediate_size = int(self.head_config.intermediate_size / self.compress_dim)
-            self.head_config.num_attention_heads = int(self.head_config.num_attention_heads / self.compress_dim)
+            self.head_config.hidden_size = int(
+                self.head_config.hidden_size / self.compress_dim
+            )
+            self.head_config.intermediate_size = int(
+                self.head_config.intermediate_size / self.compress_dim
+            )
+            self.head_config.num_attention_heads = int(
+                self.head_config.num_attention_heads / self.compress_dim
+            )
             logging.info(
                 f"Compressing top layer dimensions by factor {self.compress_dim}: hidden_size={self.head_config.hidden_size}, intermediate_size={self.head_config.intermediate_size}, num_attention_heads={self.head_config.num_attention_heads}"
             )
@@ -199,7 +201,6 @@ class MiniLMMidFusionCrossEncoder(MidFusionCrossEncoder):
             )
         else:
             self.adapter = None
-            
 
         # 2. The Bottom Encoders (Shared weights for Query and Doc)
         # We load the pre-trained BERT model for the bottom half
@@ -213,17 +214,17 @@ class MiniLMMidFusionCrossEncoder(MidFusionCrossEncoder):
 
         # Load original top layers to copy weights from
         if self.drop_layer > 0:
-            assert (
-                self.drop_layer >= self.merge_layer
-            ), "drop_layer must be >= merge_layer"
-            assert self.drop_layer < len(
-                full_bert.encoder.layer
-            ), f"drop_layer {self.drop_layer} exceeds number of layers in the backbone: {len(full_bert.encoder.layer)}"
+            assert self.drop_layer >= self.merge_layer, (
+                "drop_layer must be >= merge_layer"
+            )
+            assert self.drop_layer < len(full_bert.encoder.layer), (
+                f"drop_layer {self.drop_layer} exceeds number of layers in the backbone: {len(full_bert.encoder.layer)}"
+            )
             original_top_layers = full_bert.encoder.layer[
                 self.merge_layer : self.drop_layer
             ]
             logging.info(
-                f"Dropping backbone layers {self.drop_layer}-{len(full_bert.encoder.layer)-1}"
+                f"Dropping backbone layers {self.drop_layer}-{len(full_bert.encoder.layer) - 1}"
             )
         else:
             original_top_layers = full_bert.encoder.layer[self.merge_layer :]
@@ -235,14 +236,16 @@ class MiniLMMidFusionCrossEncoder(MidFusionCrossEncoder):
             # COPY trained weights (Self-Attention + FFN) from original BERT to new layer
             # Note: The Cross-Attention block (new_layer.crossattention) will remain random!
             if not self.random_top_layers:
-                logger.info(f"Copying weights from original BERT to Mid-Fusion top layer {i}")
+                logger.info(
+                    f"Copying weights from original BERT to Interaction top layer {i}"
+                )
                 self._copy_weights(original_top_layers[i], new_layer)
             else:
-                logger.info(f"Initializing Mid-Fusion top layer {i} randomly")
+                logger.info(f"Initializing Interaction top layer {i} randomly")
 
             self.top_layers.append(new_layer)
 
-        # pooler 
+        # pooler
         # Preserve the pretrained pooler to keep the original [CLS] projection
         self.pooler = getattr(full_bert, "pooler", None)
 
@@ -251,9 +254,9 @@ class MiniLMMidFusionCrossEncoder(MidFusionCrossEncoder):
                 "No pooler found in the base model; using [CLS] token directly."
             )
         elif self.compress_dim > 1:
-            #we must adjust the pooler to the new hidden size
+            # we must adjust the pooler to the new hidden size
             self.pooler.dense = nn.Linear(
-                self.head_config.hidden_size, self.head_config.hidden_size, bias=True   
+                self.head_config.hidden_size, self.head_config.hidden_size, bias=True
             )
 
         # Classifier
@@ -314,8 +317,8 @@ class MiniLMMidFusionCrossEncoder(MidFusionCrossEncoder):
         return x
 
     def forward_bertLayer_wo_selfAttention(
-        self, 
-        bertLayer: BertLayer, 
+        self,
+        bertLayer: BertLayer,
         hidden_states: torch.Tensor,
         attention_mask: Optional[torch.FloatTensor] = None,
         head_mask: Optional[torch.FloatTensor] = None,
@@ -325,7 +328,7 @@ class MiniLMMidFusionCrossEncoder(MidFusionCrossEncoder):
         output_attentions: Optional[bool] = False,
         cache_position: Optional[torch.Tensor] = None,
     ) -> tuple[torch.Tensor]:
-        """ Same forward as modeling_bert.BertLayer but without self-attention"""
+        """Same forward as modeling_bert.BertLayer but without self-attention"""
         # self_attention_outputs = bertLayer.attention(
         #     hidden_states,
         #     attention_mask=attention_mask,
@@ -337,8 +340,12 @@ class MiniLMMidFusionCrossEncoder(MidFusionCrossEncoder):
         # attention_output = self_attention_outputs[0]
         # outputs = self_attention_outputs[1:]  # add self attentions if we output attention weights
 
-        assert bertLayer.is_decoder, "bertLayer must be instantiated as a decoder (is_decoder=True)"
-        assert encoder_hidden_states is not None, "encoder_hidden_states must be provided for cross-attention"
+        assert bertLayer.is_decoder, (
+            "bertLayer must be instantiated as a decoder (is_decoder=True)"
+        )
+        assert encoder_hidden_states is not None, (
+            "encoder_hidden_states must be provided for cross-attention"
+        )
 
         if not hasattr(bertLayer, "crossattention"):
             raise ValueError(
@@ -356,10 +363,15 @@ class MiniLMMidFusionCrossEncoder(MidFusionCrossEncoder):
             cache_position=cache_position,
         )
         attention_output = cross_attention_outputs[0]
-        outputs = cross_attention_outputs[1:]  # add cross attentions if we output attention weights
+        outputs = cross_attention_outputs[
+            1:
+        ]  # add cross attentions if we output attention weights
 
         layer_output = apply_chunking_to_forward(
-            bertLayer.feed_forward_chunk, bertLayer.chunk_size_feed_forward, bertLayer.seq_len_dim, attention_output
+            bertLayer.feed_forward_chunk,
+            bertLayer.chunk_size_feed_forward,
+            bertLayer.seq_len_dim,
+            attention_output,
         )
         outputs = (layer_output,) + outputs
 
@@ -373,15 +385,17 @@ class MiniLMMidFusionCrossEncoder(MidFusionCrossEncoder):
             truncation=True,
             max_length=self.max_length,
         )
-    
-    def forward(self, inputs: BaseRecords, 
-                info: TrainerContext = None,
-                tokenized_queries: Optional[dict] = None,
-                tokenized_docs: Optional[dict] = None,
-                doc_hidden_states: Optional[torch.Tensor] = None,
-                ):
+
+    def forward(
+        self,
+        inputs: BaseRecords,
+        info: TrainerContext = None,
+        tokenized_queries: Optional[dict] = None,
+        tokenized_docs: Optional[dict] = None,
+        doc_hidden_states: Optional[torch.Tensor] = None,
+    ):
         """
-        Forward pass of the Mid-Fusion Cross Encoder.
+        Forward pass of the Mice Cross Encoder.
         inputs: BaseRecords containing 'topics' and 'documents' with TextItems.
         tokenized_queries: Optional pre-tokenized queries to skip tokenization step.
         tokenized_docs: Optional pre-tokenized documents to skip tokenization step.
@@ -395,7 +409,7 @@ class MiniLMMidFusionCrossEncoder(MidFusionCrossEncoder):
         if tokenized_docs is None:
             docs = [d[TextItem].text for d in inputs.documents]
             tokenized_docs = self.tokenze_texts(docs)
-        
+
         if tokenized_queries is None:
             queries = [t[TextItem].text for t in inputs.topics]
             tokenized_queries = self.tokenze_texts(queries)
@@ -412,7 +426,9 @@ class MiniLMMidFusionCrossEncoder(MidFusionCrossEncoder):
 
         if doc_hidden_states is None:
             # Process Doc through Bottom Layers
-            doc_hidden_states = self.forward_bottom(doc_ids, doc_mask) # shape [batch, seq_len_doc, dim]
+            doc_hidden_states = self.forward_bottom(
+                doc_ids, doc_mask
+            )  # shape [batch, seq_len_doc, dim]
             # 2. Prepare Masks for Top Layers
 
         # Mask for Cross-Attention (Query attending to Doc) shape [batch, 1, seq_len_query, seq_len_doc]
@@ -422,7 +438,6 @@ class MiniLMMidFusionCrossEncoder(MidFusionCrossEncoder):
         if self.adapter is not None:
             q_hidden = self.adapter(q_hidden)
             doc_hidden_states = self.adapter(doc_hidden_states)
-
 
         for layer in self.top_layers:
             # BertLayer with is_decoder=True accepts:
@@ -481,8 +496,10 @@ class ModernBertCrossAttentionLayer(GradientCheckpointingLayer):
         self.attn = ModernBertAttention(config=config, layer_id=layer_id)
 
         # Cross-attention from query to document: always uses global (full) attention
-        self.crossattention = ModernBertCrossAttention(config=config, layer_idx=layer_id)
-        
+        self.crossattention = ModernBertCrossAttention(
+            config=config, layer_idx=layer_id
+        )
+
         # Feed-forward network
         self.mlp_norm = nn.LayerNorm(
             config.hidden_size, eps=config.norm_eps, bias=config.norm_bias
@@ -492,7 +509,7 @@ class ModernBertCrossAttentionLayer(GradientCheckpointingLayer):
     @torch.compile(dynamic=True)
     def compiled_mlp(self, hidden_states: torch.Tensor) -> torch.Tensor:
         return self.mlp(self.mlp_norm(hidden_states))
-    
+
     def forward_modernbertLayer_wo_selfAttention(
         self,
         hidden_states: torch.Tensor,
@@ -505,7 +522,7 @@ class ModernBertCrossAttentionLayer(GradientCheckpointingLayer):
         max_seqlen: Optional[int] = None,
         output_attentions: Optional[bool] = False,
     ) -> tuple[torch.Tensor]:
-        """ Same forward as modeling_bert.BertLayer but without self-attention"""
+        """Same forward as modeling_bert.BertLayer but without self-attention"""
         # Self-attention on query (bidirectional)
         # attn_outputs = self.attn(
         #     self.attn_norm(hidden_states),
@@ -570,7 +587,6 @@ class ModernBertCrossAttentionLayer(GradientCheckpointingLayer):
         max_seqlen: Optional[int] = None,
         output_attentions: Optional[bool] = False,
     ) -> torch.Tensor:
-        
         # Self-attention on query (bidirectional)
         attn_outputs = self.attn(
             self.attn_norm(hidden_states),
@@ -631,7 +647,7 @@ class ModernBertCrossAttention(nn.Module):
     allows providing distinct key/value tensors coming from an encoder.
     """
 
-    # TODO: Consider changing the config type, as we add new attributes to it and only use a subset of ModernBertConfig
+    # todo: Consider changing the config type, as we add new attributes to it and only use a subset of ModernBertConfig
     def __init__(self, config: ModernBertConfig, layer_idx: Optional[int] = None):
         super().__init__()
         self.config = config
@@ -721,7 +737,7 @@ class EttinMidFusionCrossEncoder(MidFusionCrossEncoder):
     Mid-Fusion Cross Encoder based on ModernBERT Architecture.
     """
 
-    pooling_method: Param[Optional[str]] = None
+    pooling_method: Param[Optional[str]] = field(default=None, ignore_default=True)
     """Pooling method to use for the Ettin based scorer: cls or mean.
     Leave it to None for models coming from the Hub, as it will be inferred from the model config."""
 
@@ -762,17 +778,17 @@ class EttinMidFusionCrossEncoder(MidFusionCrossEncoder):
         self.top_layers = nn.ModuleList()
         # Load original top layers to copy weights from
         if self.drop_layer > 0:
-            assert (
-                self.drop_layer >= self.merge_layer
-            ), "drop_layer must be >= merge_layer"
-            assert self.drop_layer < len(
-                full_modernbert.model.layers
-            ), f"drop_layer {self.drop_layer} exceeds number of layers in the backbone: {len(full_modernbert.model.layers)}"
+            assert self.drop_layer >= self.merge_layer, (
+                "drop_layer must be >= merge_layer"
+            )
+            assert self.drop_layer < len(full_modernbert.model.layers), (
+                f"drop_layer {self.drop_layer} exceeds number of layers in the backbone: {len(full_modernbert.model.layers)}"
+            )
             original_top_layers = full_modernbert.model.layers[
                 self.merge_layer : self.drop_layer
             ]
             logging.info(
-                f"Dropping backbone layers {self.drop_layer}-{len(full_modernbert.model.layers)-1}"
+                f"Dropping backbone layers {self.drop_layer}-{len(full_modernbert.model.layers) - 1}"
             )
         else:
             original_top_layers = full_modernbert.model.layers[self.merge_layer :]
@@ -788,7 +804,9 @@ class EttinMidFusionCrossEncoder(MidFusionCrossEncoder):
             # COPY trained weights (Self-Attention + FFN) from original BERT to new layer
             # Note: The Cross-Attention block (new_layer.crossattention) will remain random!
             if not self.random_top_layers:
-                logger.info(f"Copying weights from original ModernBERT to Mid-Fusion top layer {i}")
+                logger.info(
+                    f"Copying weights from original ModernBERT to Mid-Fusion top layer {i}"
+                )
                 self._copy_weights(original_top_layers[i], new_layer)
             else:
                 logger.info(f"Initializing Mid-Fusion top layer {i} randomly")
@@ -859,7 +877,9 @@ class EttinMidFusionCrossEncoder(MidFusionCrossEncoder):
             and target_layer.crossattention is not None
         ):
             try:
-                self._init_decoder_qkv_from_encoder(target_layer.crossattention, src_layer.attn)
+                self._init_decoder_qkv_from_encoder(
+                    target_layer.crossattention, src_layer.attn
+                )
                 # Copy output projection and dropout
                 target_layer.crossattention.Wo.load_state_dict(
                     src_layer.attn.Wo.state_dict()
@@ -939,7 +959,7 @@ class EttinMidFusionCrossEncoder(MidFusionCrossEncoder):
         )
 
         for layer_idx, layer in enumerate(self.top_layers):
-            layer: ModernBertCrossAttentionLayer 
+            layer: ModernBertCrossAttentionLayer
             # ModernBertCrossAttentionLayer: self-attention + cross-attention + MLP
             if self.use_self_attention:
                 layer_out = layer(
@@ -957,7 +977,7 @@ class EttinMidFusionCrossEncoder(MidFusionCrossEncoder):
                     encoder_attention_mask=d_ext_mask,
                     position_ids=q_position_ids,
                 )
-            
+
             x = layer_out[0]
 
         x = self.final_norm(x)

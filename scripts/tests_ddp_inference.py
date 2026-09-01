@@ -16,7 +16,7 @@ class RandomDocDataset(Dataset):
     def __getitem__(self, idx):
         # Return dummy input_ids and a document ID
         return {
-            "input_ids": torch.randint(0, 1000, (self.seq_len,)), 
+            "input_ids": torch.randint(0, 1000, (self.seq_len,)),
             "doc_id": idx
         }
 
@@ -24,7 +24,7 @@ class SimpleBackbone(nn.Module):
     def __init__(self):
         super().__init__()
         self.layer = nn.Linear(128, 768)
-    
+
     def forward(self, x):
         # Simulate an embedding generation
         return self.layer(x.float()).mean(dim=1)
@@ -46,13 +46,13 @@ def run_inference(fabric: Fabric):
     output_dir = "./embeddings_output"
     if fabric.is_global_zero:
         os.makedirs(output_dir, exist_ok=True)
-    
+
     # Ensure dir exists before workers start writing
     fabric.barrier()
 
     # D. Run Inference
     fabric.print(f"Rank {fabric.global_rank} starting inference...")
-    
+
     with torch.no_grad():
         for i, batch in enumerate(dataloader):
             input_ids = batch["input_ids"]
@@ -65,9 +65,9 @@ def run_inference(fabric: Fabric):
             # E. Save Results Immediately (No OOM)
             # We save a separate file per rank and per batch to avoid locking
             save_path = f"{output_dir}/part_rank{fabric.global_rank}_batch{i}.pt"
-            
+
             torch.save({
-                "doc_ids": doc_ids.cpu(), 
+                "doc_ids": doc_ids.cpu(),
                 "embeddings": embeddings.cpu()
             }, save_path)
 
@@ -77,6 +77,6 @@ if __name__ == "__main__":
     # Initialize Fabric
     # 'devices=4' and 'strategy="ddp"' enables the parallel batch processing
     fabric = Fabric(accelerator="gpu", devices=4, strategy="ddp")
-    
+
     # Launch the multi-GPU process
     fabric.launch(run_inference)

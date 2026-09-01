@@ -1,0 +1,46 @@
+id: eval_scorer_debug
+title: cross_scorer_evaluation
+description: Experiment whose purpose is to evaluate HF Cross-scorers
+
+module: Evaluation.experiment
+pre_experiment: pre_experiment
+
+gpu: true
+
+scorers_hf_id:
+  - cross-encoder/ms-marco-MiniLM-L12-v2
+  # - xpmir/cross-encoder-bert-base-infoNCE
+  # - xpmir/cross-encoder-MiniLM-L12-MarginMSE
+  # - naver/trecdl22-crossencoder-debertav3
+  # - tomaarsen/ms-marco-ettin-150m-reranker
+  # - cross-encoder/ms-marco-MiniLM-L6-v2
+  # - tomaarsen/ms-marco-ettin-68m-reranker
+  # - tomaarsen/ms-marco-ettin-32m-reranker
+  # - tomaarsen/ms-marco-ettin-17m-reranker
+
+# retrievers_hf_id:
+#   - naver/splade-v3-distilbert
+
+preprocessing:
+  requirements: duration=1h & cpu(cores=4)
+
+indexation:
+  requirements: duration=1h & cpu(cores=4)
+  sparse2bmp_requirements: duration=8h & cpu(cores=8)
+  batch_size: 256
+
+retrieval:
+  requirements: duration=1h & cpu(cores=4)
+  batch_size: 128
+  k: 100
+
+evaluation:
+  #just for debugging
+  test_max_topics: 100
+  all_datasets: false
+  datasets:
+        - nfcorpus
+        - touche
+  in_domain: false
+  beir13: false
+  nanobeir: false

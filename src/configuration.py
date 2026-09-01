@@ -1,25 +1,57 @@
 from enum import Enum
 from attrs import Factory, field
-from typing import Any, List, Optional, Tuple
+from typing import (
+    Any,
+    Dict,
+    List,
+    Optional,
+)
+from experimaestro.experiments.grid import GridSearch
+from xpm_torch.experiments.configuration import TransformerOptimization, Fabric
 from xpmir.papers import configuration
-from xpmir.papers.helpers import LauncherSpecification
-from xpmir.papers.helpers.optim import TransformerOptimization
-from xpmir.papers.helpers.msmarco import RerankerMSMarcoV1Configuration
-from functools import cached_property as attrs_cached_property
-from xpmir.learning.devices import CudaDevice, BestDevice, Device
-
+from xpmir.experiments.helpers import LauncherSpecification
+from xpmir.datasets.msmarco import RerankerMSMarcoV1Configuration
 import logging
 
-logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
+
 
 class Losses(str, Enum):
     """Possible losses"""
 
+    BCE = "bce"
+    """ Binary Cross Entropy loss """
+
+    hingeLoss = "hingeLoss"
+    """Hinge loss"""
+
+    infoNCE = "infoNCE"
+    """InfoNCE loss, with in-batch negatives"""
+
+    infoNCE_Colbertv2Neg = "infoNCE_Colbertv2Neg"
+    """InfoNCE using the negatives sampled by Schlatt et al. 2025 with ColBERTv2"""
+
+    infoNCE_RankDistiLLM = "infoNCE_RankDistiLLM"
+    """InfoNCE using the negatives sampled from the RankDistiLLM top-50 pool using MS MARCO qrels"""
+
+    BCE_Colbertv2Neg = "BCE_Colbertv2Neg"
+    """Binary Cross Entropy loss with ColBERTv2 negatives"""
+
+    hingeLoss_Colbertv2Neg = "hingeLoss_Colbertv2Neg"
+    """Hinge loss with ColBERTv2 negatives"""
+
     marginMSE = "marginMSE"
     """Margin Mean Squared Error loss from hofstatter et al. 2020"""
 
-    PointWiseMSE = "PointWiseMSE"
-    """ Point Wise Mean Squared Error loss """
+    distillRankNET = "distillRankNET"
+    """Distillation version of RankNET loss from Schlatt et al. 2025"""
+
+    ADR_MSE = "ADR_MSE"
+    """Listwise distillation loss proposed by Schlatt et al. 2025"""
+
+    MSE_mixedbread_large = "MSE_mixedbread_large"
+    """Plain pointwise MSE loss on cross-encoder/ettin-reranker-v1-data teacher scores"""
+
 
 class PoolingMethod(str, Enum):
     """Possible pooling methods"""
@@ -30,6 +62,23 @@ class PoolingMethod(str, Enum):
     MEAN = "mean"
     """Mean pooling"""
 
+
+class Validation(str, Enum):
+    """Possible validation subsets"""
+
+    MSMARCO = "msmarco"
+    """Nano MSMARCO validation subset"""
+
+    NanoBEIR = "nanobeir"
+    """A small subset of BEIR datasets designed specifically for validation"""
+
+    NanoBEIR11 = "nanobeir11"
+    """NanoBEIR excluding argana and touche-2020 as done in [Sentence-Transformers](https://www.sbert.net/docs/package_reference/cross_encoder/evaluation.html#crossencodernanobeirevaluator)"""
+
+    ALL = "all"
+    """ Both Nano MSMARCO and NanoBEIR validations"""
+
+
 @configuration()
 class Indexation(LauncherSpecification):
     batch_size: int = 512
@@ -38,228 +87,231 @@ class Indexation(LauncherSpecification):
     requirements: str = "duration=2 days & cpu(cores=8)"
     sparse2bmp_requirements: str = "duration=1d & cuda(mem=24G)"
 
-@configuration()
-class xpm_torch_Learner:
-    validation_interval: int = field(default=32)
-    validation_top_k: int = 1000
-
-    checkpoint_interval: int = field(default=32)
-
-    optimization: TransformerOptimization = Factory(TransformerOptimization)
-    requirements: str = "duration=4 days & cuda(mem=24G) * 2"
-    sample_rate: float = 1.0
-    """Sample rate for triplets"""
-
-    sample_max: int = 0
-    """Maximum number of samples considered (before shuffling). 0 for no limit."""
-
-    max_grad_norm: float = 0.0
-    """Maximum gradient norm (0 for no clipping)"""
-
-    loss: str = Losses.marginMSE.value
-    """Loss function to use"""
-
-    ## Lighnting Fabric parameters see https://lightning.ai/docs/fabric/stable/api/generated/lightning.fabric.fabric.Fabric.html#lightning.fabric.fabric.Fabric 
-
-    strategy: str = "auto"
-    """Distributed training strategy"""
-
-    precision: Optional[str] = None
-    """Precision to use - e.g., '16-mixed', 'bf16-mixed', etc."""
-
-    accelerator: str = "auto"
-    """ Accelerator to use """
-
 
 @configuration()
 class Retrieval:
-    k: int = 1000
-    batch_size: int = 128
+    k: GridSearch[int] = 1000
+    batch_size: GridSearch[int] = 128
     requirements: str = "duration=2 days & cuda(mem=24G)"
+
+    long_evals: List[str] = Factory(list)
+    """List of substrings. If a dataset name matches one, evaluation will route to the long_launcher."""
+
+    long_requirements: Optional[str] = None
+    """Requirements string used to instantiate the specialized long_launcher (e.g., requesting multi-GPU)."""
 
 
 @configuration()
 class Preprocessing:
     requirements: str = "duration=12h & cpu(cores=4)"
-
-@configuration()
-class Layer_params:
-    """Either a single layer (value) or an explicit range (values_range)."""
-    value: Optional[int] = 0
-    values_range: Optional[Tuple[int, int]] = None
-
-    def get_content(self) -> Any:
-        if self.value is not None:
-            return self.value
-        if self.values_range is not None:
-            return self.values_range
-        raise ValueError("Either value or values_range must be set.")
-
-    def get_content_as_list(self) -> str:
-        if self.value is not None:
-            return [self.value]
-        if self.values_range is not None:
-            return list(range(self.values_range[0], self.values_range[1]))
-        raise ValueError("Either value or values_range must be set.")
-    
-    def _validate(self):
-        if self.value is not None and not isinstance(self.value, int):
-            raise TypeError(f"value must be an int or None, got {self.value!r}")
-        if self.values_range is not None:
-            if not (
-                isinstance(self.values_range, (tuple, list))
-                and len(self.values_range) == 2
-                and isinstance(self.values_range[0], int)
-                and isinstance(self.values_range[1], int)
-                and self.values_range[1] >= self.values_range[0]
-            ):
-                raise TypeError(
-                    f"values_range must be a pair of ints (start <= end), got {self.values_range!r}"
-                )
-        if self.value is not None and self.values_range is not None:
-            logging.warning("Both value and values_range are set. Defaulting to value.")
-        if self.value is None and self.values_range is None:
-            raise ValueError("Either value or values_range must be set.")
-        
-    @staticmethod
-    def from_any(obj: Any, default: int = 0) -> "Layer_params":
-        """Normalize int, dict/DictConfig or Layer_params into a Layer_params instance."""
-        from omegaconf import DictConfig  # local import to avoid top-level dependency issues
-        if isinstance(obj, Layer_params):
-            return obj
-        if isinstance(obj, int):
-            return Layer_params(value=obj)
-        if obj is None:
-            return Layer_params(value=default)
-        if isinstance(obj, DictConfig) or isinstance(obj, dict):
-            od = dict(obj)
-            if "value" in od:
-                return Layer_params(value=int(od["value"]))
-            if "values_range" in od:
-                vr = od["values_range"]
-                if isinstance(vr, (list, tuple)) and len(vr) == 2:
-                    return Layer_params(value=None, values_range=(int(vr[0]), int(vr[1] + 1))) # Add +1 to include the upper_bound specified in the config
-        raise TypeError(f"Cannot convert {obj!r} to Layer_params")
+    blocking_download: bool = False
+    """Whether to download and build dataset document stores sequentially in the main process before experiment task submission"""
 
 
-@configuration()
-class Attn_patch:
-    mask_attention_from : List[str]
-    """tokens from which attention will be masked
-    can be  in 'cls', 'query', 'document' or 'sep_1', 'sep_2'
-    """
+class CheckpointSelection(str, Enum):
+    """Possible checkpoints to evaluate"""
 
-    mask_attention_to : List[str]
-    """tokens to which attention will be masked
-    can be in 'cls', 'query', 'document' or 'sep_1', 'sep_2'
-    """
+    VAL = "val"
+    """Evaluate only the best validation checkpoint(s)"""
 
-    # use Layer_params for both start and end; defaults use single int values
-    start_layer: Any = 0
-    """Start layer for attention masking (use .value for single layer or .values_range for a range)"""
+    LAST = "last"
+    """Evaluate only the last checkpoint"""
 
-    end_layer: Any = -1
-    """End layer for attention masking (use .value for single layer or .values_range for a range)"""
+    BOTH = "both"
+    """Evaluate both best validation and last checkpoints"""
+
 
 @configuration()
 class Evaluation:
+    """What datasets to evaluate on, eventually limit the number of queries for debug"""
+
     test_max_topics: int = 0
     """Development test size (0 to leave it like this)"""
 
-    in_domain_only: bool = False
-    """Whether to evaluate only on in-domain datasets (MSMarco, TREC DL 19 and 20)"""
-    
     all_datasets: bool = False
     """Whether to evaluate on all BEIR datasets (minus the 5 not publicly available)"""
 
+    in_domain: bool = False
+    """Whether to evaluate on in-domain datasets (MSMarco, TREC DL 19 and 20)"""
+
+    beir13: bool = False
+    """Whether to evaluate on all BEIR13 datasets"""
+
+    beir13_decontaminated: bool = False
+    """Whether to evaluate on all LightOn BEIR13 decontaminated datasets"""
+
+    lotte_search: bool = False
+    """Whether to evaluate on all LOTTE Search datasets"""
+
+    robust04: bool = False
+    """Whether to evaluate on Robust04"""
+
+    nanobeir: bool = False
+    """Whether to evaluate on NanoBEIR datasets"""
+
+    eval_checkpoint: CheckpointSelection = CheckpointSelection.LAST
+    """Checkpoint(s) to evaluate: 'val' (best validation), 'last' (final epoch), or 'both'"""
+
+    datasets: List[str] = Factory(list)
+    """List of specific datasets to evaluate on"""
+
+    fabric: Fabric = Factory(Fabric)
+    """Configuration for Fabric device management during evaluation"""
+
+    def get_checkpoint_mode(self) -> CheckpointSelection:
+        return CheckpointSelection(self.eval_checkpoint)
+
+
 @configuration()
-class FrankenCE_Finetuning(RerankerMSMarcoV1Configuration):
-    
+class xpm_torch_Learner:
+    validation_interval: GridSearch[int] = field(default=32)
+
+    validation_top_k: GridSearch[int] = 1000
+
+    checkpoint_interval: GridSearch[int] = field(default=32)
+
+    optimization: TransformerOptimization = Factory(TransformerOptimization)
+
+    requirements: str = "duration=4 days & cuda(mem=24G) * 2"
+
+    sample_rate: GridSearch[float] = 1.0
+    """Sample rate for triplets"""
+
+    sample_max: GridSearch[int] = 0
+    """Maximum number of samples considered (before shuffling). 0 for no limit."""
+
+    max_grad_norm: GridSearch[float] = 0.0
+    """Maximum gradient norm (0 for no clipping)"""
+
+    loss: GridSearch[str] = Losses.marginMSE.value
+    """Loss function to use"""
+
+    validation: GridSearch[str] = Validation.NanoBEIR.value
+    """ The validation subset to use """
+
+    early_stop_epochs: GridSearch[int] = 0
+    """ number of **epochs** without improvements before early stopping based on validation"""
+
+    fabric: Fabric = Factory(Fabric)
+    """Configuration for Fabric device management"""
+
+
+@configuration()
+class PlaidConfiguration:
+    """
+    Configuration for PLAID integration in MICE retrieval pipeline.
+    """
+
+    use_plaid: bool = False
+    """Whether to use PLAID for retrieval"""
+
+    ### Indexation params ###
+    buffer_size: int = 1000
+    """Number of documents to use for creating/updating the PLAID index"""
+
+    batch_size: int = 25_000
+    """Batch size (in tokens) when encoding documents for PLAID"""
+
+    dim: int = 128
+    """Per-token embedding dimension for PLAID index"""
+
+    n_bits: int = 2
+    """Number of bits for residual quantization in PLAID"""
+
+    kmeans_niters: int = 4
+    """Number of K-means iterations for PLAID clustering"""
+
+    n_samples_kmeans: int = 0
+    """Number of token samples used to train the centroids (0 = fast-plaid
+    default)."""
+
+    max_points_per_centroid: int = 256
+    """Maximum number of points (documents) per centroid. Controls the creation of new centroids."""
+
+    compress_only: bool = False
+    """Whether to build a compress-only index (no IVF search)"""
+
+    force_cpu_indexing: bool = False
+    """When True, forces the use of CPU for indexing even if a GPU is available.
+    This can be useful to avoid GPU OOM errors during indexing, especially for large corpora."""
+
+    ### Retrieval params ###
+    n_ivf_probe: int = 8
+    """Number of IVF clusters to probe in PLAID (lower = faster, less accurate)"""
+
+    n_full_scores: int = 0
+    """Number of candidates for which fast-plaid computes full scores
+    (0 = fast-plaid default)."""
+
+
+@configuration()
+class CE_FineTuning(RerankerMSMarcoV1Configuration):
     nb_repetitions: int = field(default=1)
     """Number of repetitions of the training process"""
-    
+
+    pref_attn_implementation: Optional[str] = field(default=None)
+    """Attention implementation for HuggingFace models (e.g. 'flash_attention_2', 'sdpa', 'eager')"""
+
+    use_st_scorer: bool = field(default=True)
+    """Use sentence-transformers STCrossEncoder instead of HFCrossScorer"""
+
+    ettin_subset_exclude: List[str] = field(factory=list)
+    """The subset config names of cross_encoder.ettin_reranker_v1_data to exclude from training"""
+
     indexation: Indexation = Factory(Indexation)
     retrieval: Retrieval = Factory(Retrieval)
 
     learner: xpm_torch_Learner = Factory(xpm_torch_Learner)
-    
+
     preprocessing: Preprocessing = Factory(Preprocessing)
 
     evaluation: Evaluation = Factory(Evaluation)
 
+    plaid: PlaidConfiguration = Factory(PlaidConfiguration)
+
     ## Retriever Model
     retriever: str = ""
     """Identifier for the retriever model. If empty, uses BM25."""
-    
+
+    precompute_first_stage: bool = True
+    """If true, will save the run for the first stage - just reload it for evaluation rather than recomputing"""
+
     ## Cross Encoder Model
-    base: str = "bert-base-uncased"
+    base: GridSearch[str] = ""
     """Identifier for the base model"""
 
-    pooling_method: str = PoolingMethod.CLS.value
-    """Pooling method to use for the Ettin based scorer: cls or mean"""
+    max_length: Optional[int] = None
+    """max len for scorer, default to 0 = max len of the model"""
 
-    attn_patches: List[Attn_patch] = []    
+    max_query_length: Optional[int] = None
+    """Maximum query length for cross-encoders"""
+
+    max_doc_length: Optional[int] = None
+    """Maximum document length for cross-encoders"""
+
+    pooling_method: str = PoolingMethod.CLS.value
+    """Pooling method to use for the ModernBert based scorer: cls or mean"""
 
     compare_with_baseline: bool = False
     """After evaluations are done, whether to test statistical significance against a baseline.
     By default, the baseline is BM25 + the CE simply fine-tuned on the same setup."""
 
-    @attrs_cached_property
-    def deterministic_device(self) -> Device:
-        if self.use_best_device:
-            return BestDevice.C()
-        return CudaDevice.C(gpu_determ=True) if self.gpu else Device.C()
+    save_runs: bool = False
+    """Whether to save the evaluation runs in the best model folders"""
 
-@configuration()
-class   MidFusionCE_Finetuning(RerankerMSMarcoV1Configuration):
-    
-    nb_repetitions: int = field(default=1)
-    """Number of repetitions of the training process"""
-    
-    indexation: Indexation = Factory(Indexation)
-    retrieval: Retrieval = Factory(Retrieval)
+    export_trained_models: bool = True
+    """Whether to export the best models to the models/ folder"""
 
-    learner: xpm_torch_Learner = Factory(xpm_torch_Learner)
-    
-    preprocessing: Preprocessing = Factory(Preprocessing)
+    normalize_docs_per_batch: bool = True
+    """whether to normalize documents per batch for listwise losses"""
 
-    evaluation: Evaluation = Factory(Evaluation)
-
-    ## Retriever Model
-    retriever: str = ""
-    """Identifier for the retriever model. If empty, uses BM25."""
-    
-    ## Cross Encoder Model
-    base: str = "bert-base-uncased"
-    """Identifier for the base model"""
-
-    merge_layer: Any = 6
-    """Layer at which to split the model for mid-fusion : value or values_range"""
-
-    drop_layer: Any = 0
-    """Layer at which to drop backbone layers, Layer_params : value or values_range"""
-
-    compress_dim: Any = 1
-    """Factor to use for dimension compression in the model."""
-
-    use_self_attention: bool = True
-    """Whether to use self-attention in the fusion layers"""
-
-    random_top_layers: bool = False
-    """Whether to initialize the top layers randomly instead of copying from the base model"""
-
-    freeze_base: bool = False
-    """Whether to freeze the base model during finetuning"""
-    
-    pooling_method: str = PoolingMethod.CLS.value
-    """Pooling method to use for the Ettin based scorer: cls or mean"""
-
-    compare_with_baseline: bool = False
-    """After evaluations are done, whether to test statistical significance against a baseline.
-    By default, the baseline is BM25 + the CE simply fine-tuned on the same setup."""
-
-    @attrs_cached_property
-    def deterministic_device(self) -> Device:
-        if self.use_best_device:
-            return BestDevice.C()
-        return CudaDevice.C(gpu_determ=True) if self.gpu else Device.C()
+    grid_search: Dict[str, GridSearch[Any]] = field(factory=dict)
+    """
+    Grid search parameters. Maps a dot-separated parameter path to a GenericParams object.
+    Example in YAML:
+    grid_search:
+      learner.optimization.lr:
+        values_list: [1e-5, 2e-5]
+      pooling_method:
+        value: "cls"
+    """

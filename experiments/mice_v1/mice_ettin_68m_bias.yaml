@@ -1,0 +1,10 @@
+id: train_mice_ettin_68m_bias
+title: "Mice-Ettin-68m Training"
+description:
+    Base Training for Ettin-68m-based MICE model.
+
+module: MICE.experiments.mice_training
+parent: ./mice_ettin_68m.yaml # same training parameters
+export_trained_models: true
+extra_attn_bias: true
+# pre_experiment: pre_experiment

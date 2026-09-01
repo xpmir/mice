@@ -1,9 +1,130 @@
 """Formatting utilities for experiment results"""
 
-import numpy as np
 import pandas as pd
-from pathlib import Path
-import sys
+
+from tests import NANO_BEIR_KEYS
+
+### Some dicts for formatting
+
+loss_names = {
+    "bce": "BCE",
+    "hingeLoss": "Hinge",
+    "infoNCE_Colbertv2Neg": "InfoNCE",
+    "marginMSE": "MarginMSE",
+    "distillRankNET": "DistillRankNET",
+    "ADR_MSE": "ADR-MSE",
+    "MSE_mixedbread_large": "MSE (mixedbread-large)",
+}
+
+backbone_names = {
+    "jhu-clsp/ettin-encoder-17m": "Ettin-17M",
+    "jhu-clsp/ettin-encoder-32m": "Ettin-32M",
+    "jhu-clsp/ettin-encoder-68m": "Ettin-68M",
+    "jhu-clsp/ettin-encoder-150m": "Ettin-150M",
+    "microsoft/MiniLM-L12-H384-uncased": "MiniLM-L12 (33M)",
+    "google/electra-base-discriminator": "ELECTRA (110M)",
+    "bert-base-uncased": "BERT-Base (110M)",
+    "FacebookAI/roberta-base": "RoBERTa (125M)",
+    "microsoft/deberta-v3-base": "DeBERTav3 (184M)",
+}
+
+# condensed version for mice figure
+backbone_names_mice = {
+    "microsoft/MiniLM-L12-H384-uncased": "MiniLM",
+    "bert-base-uncased": "BERT",
+    "google/electra-base-discriminator": "ELECTRA",
+    "microsoft/deberta-v3-base": "DeBERTav3",
+    "FacebookAI/roberta-base": "RoBERTa (125M)",
+    # Ettin
+    "jhu-clsp/ettin-encoder-17m": "Ettin17",
+    "jhu-clsp/ettin-encoder-32m": "Ettin32",
+    "jhu-clsp/ettin-encoder-68m": "Ettin68",
+    "jhu-clsp/ettin-encoder-150m": "Ettin150",
+}
+
+backbone_names_lower = {
+    "jhu-clsp/ettin-encoder-17m": "ettin-17m",
+    "jhu-clsp/ettin-encoder-32m": "ettin-32m",
+    "microsoft/MiniLM-L12-H384-uncased": "MiniLM-L12",
+    "jhu-clsp/ettin-encoder-68m": "ettin-68m",
+    "bert-base-uncased": "bert-base",
+    "google/electra-base-discriminator": "ELECTRA",
+    "FacebookAI/roberta-base": "RoBERTa",
+    "jhu-clsp/ettin-encoder-150m": "ettin-150m",
+    "microsoft/deberta-v3-base": "DeBERTav3",
+}
+
+backbone_nlayers = {
+    "jhu-clsp/ettin-encoder-17m": 7,
+    "jhu-clsp/ettin-encoder-32m": 10,
+    "microsoft/MiniLM-L12-H384-uncased": 12,
+    "jhu-clsp/ettin-encoder-68m": 19,
+    "bert-base-uncased": 12,
+    "google/electra-base-discriminator": 12,
+    "FacebookAI/roberta-base": 12,
+    "jhu-clsp/ettin-encoder-150m": 22,
+    "microsoft/deberta-v3-base": 12,
+}
+
+aggregations = {
+    "In Domain": ["msmarco_dev", "trec2019", "trec2020"],
+    "minified": [
+        "msmarco_dev",
+        "trec2019",
+        "trec2020",
+        "scifact",
+        "touche",
+        "fiqa",
+        "nfcorpus",
+    ],
+    "BEIR13": [
+        "arguana",
+        "climate_fever",
+        "dbpedia",
+        "fever",
+        "fiqa",
+        "hotpotqa",
+        "nfcorpus",
+        "nq",
+        "quora",
+        "scidocs",
+        "scifact",
+        "touche",
+        "trec_covid",
+    ],
+    "BEIR13 Decontaminated": [
+        "arguana_decontaminated",
+        "climate_fever_decontaminated",
+        "dbpedia_decontaminated",
+        "fever_decontaminated",
+        "fiqa_decontaminated",
+        "hotpotqa_decontaminated",
+        "nfcorpus_decontaminated",
+        "nq_decontaminated",
+        "quora_decontaminated",
+        "scidocs_decontaminated",
+        "scifact_decontaminated",
+        "touche_decontaminated",
+        "trec_covid_decontaminated",
+    ],
+    "Lotte-S": [
+        "lotte_lifestyle",
+        "lotte_recreation",
+        "lotte_science",
+        "lotte_technology",
+        "lotte_writing",
+    ],
+    "Nano BEIR": list(NANO_BEIR_KEYS.keys()),
+}
+
+## Aggregations used in the HF Card (keep short)
+aggregation_hf = {
+    "Mean In Domain": aggregations["In Domain"],
+    "BEIR 13": aggregations["BEIR13"],
+    "BEIR 13 (Decontaminated)": aggregations["BEIR13 Decontaminated"],
+    "LoTTE (OOD)": aggregations["Lotte-S"],
+    "Nano BEIR": aggregations["Nano BEIR"],
+}
 
 DATASET_TO_ABB = {
     "fiqa": "Fi",
@@ -22,6 +143,25 @@ DATASET_TO_ABB = {
     "quora": "Q",
     "scidocs": "SD",
     "trec_covid": "T-C",
+    "robust04": "R04",
+    "lotte_lifestyle": "Life.",
+    "lotte_recreation": "Rec.",
+    "lotte_science": "Sci.",
+    "lotte_technology": "Tech.",
+    "lotte_writing": "Writ.",
+    "fiqa_decontaminated": "Fi*",
+    "nfcorpus_decontaminated": "NFC*",
+    "scifact_decontaminated": "SF*",
+    "arguana_decontaminated": "Ar*",
+    "touche_decontaminated": "T-v2*",
+    "climate_fever_decontaminated": "CF*",
+    "dbpedia_decontaminated": "DB*",
+    "fever_decontaminated": "FE*",
+    "hotpotqa_decontaminated": "HPQ*",
+    "nq_decontaminated": "NQ*",
+    "quora_decontaminated": "Q*",
+    "scidocs_decontaminated": "SD*",
+    "trec_covid_decontaminated": "T-C*",
 }
 
 
@@ -46,11 +186,13 @@ def escape_latex(text: str) -> str:
         text = text.replace(char, replacement)
     return text
 
+
 def dataframe_to_latex(
     df: pd.DataFrame,
     caption: str = "Results",
     label: str = "tab:results",
     sig_df: pd.DataFrame = None,
+    metric_col: str = "nDCG@10",
 ) -> str:
     """
     Convert a grouped dataframe with multi-level columns to a LaTeX table.
@@ -81,7 +223,9 @@ def dataframe_to_latex(
         # Ensure there's a `p_value` column (tolerant renaming if needed)
         if "p_value" not in sig_df.columns:
             for col in sig_df.columns:
-                if "p" in str(col).lower() and ("value" in str(col).lower() or "val" in str(col).lower()):
+                if "p" in str(col).lower() and (
+                    "value" in str(col).lower() or "val" in str(col).lower()
+                ):
                     sig_df = sig_df.rename(columns={col: "p_value"})
                     break
 
@@ -102,6 +246,7 @@ def dataframe_to_latex(
     dataset_col = find_col_by_value("dataset") or df.columns[0]
     first_stage_col = find_col_by_value("first_stage")
     scorer_col = find_col_by_value("scorer")
+    base_col = find_col_by_value("base")
 
     # Find nDCG@10 mean/var columns
     ndcg_mean_col = None
@@ -111,14 +256,14 @@ def dataframe_to_latex(
             if (
                 len(col) >= 3
                 and col[0] == "metric"
-                and col[1] == "nDCG@10"
+                and col[1] == metric_col
                 and col[2] == "mean"
             ):
                 ndcg_mean_col = col
             if (
                 len(col) >= 3
                 and col[0] == "metric"
-                and col[1] == "nDCG@10"
+                and col[1] == metric_col
                 and col[2] == "var"
             ):
                 ndcg_var_col = col
@@ -127,12 +272,31 @@ def dataframe_to_latex(
     if ndcg_mean_col is None or ndcg_var_col is None:
         for col in df.columns:
             s = " ".join(map(str, col)) if isinstance(col, tuple) else str(col)
-            if "nDCG@10" in s and "mean" in s and ndcg_mean_col is None:
+            if metric_col in s and "mean" in s and ndcg_mean_col is None:
                 ndcg_mean_col = col
-            if "nDCG@10" in s and "var" in s and ndcg_var_col is None:
+            if metric_col in s and "var" in s and ndcg_var_col is None:
                 ndcg_var_col = col
 
-    # Collect values: rows = models, cols = datasets
+    # Final fallback: just look for the metric name itself if no mean/var columns found
+    if ndcg_mean_col is None:
+        ndcg_mean_col = find_col_by_value(metric_col)
+
+    # Identify tag columns (non-metric, non-dataset, non-n_runs)
+    excluded_col_names = {"dataset", "n_runs", "seed"}
+    tag_cols = []
+    for col in df.columns:
+        col_name = col[0] if isinstance(col, tuple) else str(col)
+        col_stat = col[1] if isinstance(col, tuple) and len(col) > 1 else ""
+        if (
+            col_name not in excluded_col_names
+            and col_name != "metric"
+            and col_stat not in ("mean", "var")
+        ):
+            if (
+                col not in (dataset_col, ndcg_mean_col, ndcg_var_col)
+                and col not in tag_cols
+            ):
+                tag_cols.append(col)
     table: dict = {}
     table_values: dict = {}  # numeric mean values for averaging
     table_meta: dict = {}  # store first_stage/scorer for each model label
@@ -152,22 +316,56 @@ def dataframe_to_latex(
         dataset = str(dataset_val)
         datasets.add(dataset)
 
-        # model label = first_stage + scorer (if available)
+        # model label construction
         parts = []
         if first_stage_col is not None:
             try:
                 fs = row[first_stage_col]
-                if pd.notna(fs):
+                if pd.notna(fs) and str(fs) != "nan":
                     parts.append(str(fs))
             except Exception:
                 pass
+
+        scorer_val = None
         if scorer_col is not None:
             try:
                 sc = row[scorer_col]
                 if pd.notna(sc) and str(sc) != "nan":
-                    parts.append(str(sc))
+                    scorer_val = str(sc)
+                    parts.append(scorer_val)
             except Exception:
                 pass
+
+        # If scorer is absent or NaN (fine-tuning mode), use base model
+        model_parts = []
+        if scorer_val is None and base_col is not None:
+            try:
+                b = row[base_col]
+                if pd.notna(b) and str(b) != "nan":
+                    model_parts.append(str(b))
+            except Exception:
+                pass
+
+        # Add any grid search / tag columns that vary across rows in df
+        extra_tags = []
+        for tc in tag_cols:
+            if tc in (first_stage_col, scorer_col, base_col):
+                continue
+            tc_name = tc[0] if isinstance(tc, tuple) else str(tc)
+            try:
+                val = row[tc]
+                if pd.notna(val) and str(val) != "nan":
+                    if df[tc].nunique(dropna=True) > 1:
+                        extra_tags.append(f"{tc_name}={val}")
+            except Exception:
+                pass
+
+        if model_parts:
+            if extra_tags:
+                model_parts.append(f"({', '.join(extra_tags)})")
+            parts.append(" ".join(model_parts))
+        elif extra_tags:
+            parts.append(", ".join(extra_tags))
 
         model_label = " / ".join(parts) if parts else "model"
 
@@ -196,17 +394,17 @@ def dataframe_to_latex(
 
         # get mean and var
         mean_val = None
-        var_val = None
         try:
             if ndcg_mean_col is not None:
                 mean_val = row[ndcg_mean_col]
         except Exception:
             mean_val = None
-        try:
-            if ndcg_var_col is not None:
-                var_val = row[ndcg_var_col]
-        except Exception:
-            var_val = None
+        # var_val = None
+        # try:
+        #     if ndcg_var_col is not None:
+        #         var_val = row[ndcg_var_col]
+        # except Exception:
+        #     var_val = None
 
         # Format cell: display as percentage (multiply by 100) with one decimal, no variance
         try:
@@ -214,7 +412,7 @@ def dataframe_to_latex(
                 cell = "-"
             else:
                 m = float(mean_val)
-                cell = f"{100*m:.1f}"
+                cell = f"{100 * m:.1f}"
         except Exception:
             cell = "-"
 
@@ -222,7 +420,7 @@ def dataframe_to_latex(
         # We'll record p-values for post-processing (arrows) rather than modify cell here
         if sig_df is not None and cell != "-":
             try:
-                metric_name = "nDCG@10"
+                metric_name = metric_col
                 sd = sig_df[sig_df["dataset"].astype(str) == dataset]
                 sd = sd[sd["measure"].astype(str) == metric_name]
                 scorer_name = table_meta.get(model_label, {}).get("scorer")
@@ -262,11 +460,14 @@ def dataframe_to_latex(
         table_values.setdefault(model_label, {})[dataset] = numeric_mean
 
     # Build LaTeX table
-    # Order datasets: MSMARCO first, then trec2019 and trec2020, then remaining alphabetically
+    # Order datasets: MSMARCO first, then BEIR and finally LoTTE.
     preferred = ["msmarco_dev", "trec2019", "trec2020"]
     ordered = [d for d in preferred if d in datasets]
-    others = sorted([d for d in datasets if d not in preferred])
-    datasets = ordered + others
+    # BEIR-like datasets: all datasets except preferred and those containing 'lotte'
+    beir = sorted([d for d in datasets if d not in preferred and "lotte" not in d])
+    # Lotte datasets go at the end (just before the Avg columns)
+    lotte = sorted([d for d in datasets if "lotte" in d])
+    datasets = ordered + beir + lotte
     model_labels = sorted(table.keys())
 
     # Post-process significance markers: replace bolding with directional arrows
@@ -312,13 +513,20 @@ def dataframe_to_latex(
     latex_lines.append(f"\\label{{{label}}}")
 
     # Add two extra columns for Avg. and Avg. (OOD)
-    col_spec = "r" + "c" * len(datasets) + "cc"
+    col_spec = "r" + "c" * len(datasets) + "cccc"
     latex_lines.append(f"\\begin{{tabular}}{{{col_spec}}}")
     latex_lines.append("\\toprule")
 
     # Use abbreviations for dataset display names when available
     header = ["Model"] + [escape_latex(DATASET_TO_ABB.get(d, d)) for d in datasets]
-    header.extend(["Avg. (ID)", "Avg. (OOD)"])
+    header.extend(
+        [
+            "Avg. (ID)",
+            "Avg. (BEIR OOD)",
+            "Avg. (LoTTE OOD)",
+            "Avg. (OOD)",
+        ]
+    )
     latex_lines.append(" & ".join(header) + " \\\\")
     latex_lines.append("\\midrule")
 
@@ -337,20 +545,44 @@ def dataframe_to_latex(
         ]
         if id_vals:
             avg = sum(id_vals) / len(id_vals)
-            row_parts.append(f"{100*avg:.1f}")
+            row_parts.append(f"{100 * avg:.1f}")
         else:
             row_parts.append("-")
 
-        # OOD average: exclude preferred datasets
-        ood_ds = [d for d in datasets if d not in preferred]
-        ood_vals = [
+        # BEIR-only OOD (already computed in `beir` list above)
+        beir_vals = [
             table_values.get(model, {}).get(d)
-            for d in ood_ds
+            for d in beir
             if table_values.get(model, {}).get(d) is not None
         ]
-        if ood_vals:
-            ood_avg = sum(ood_vals) / len(ood_vals)
-            row_parts.append(f"{100*ood_avg:.1f}")
+        if beir_vals:
+            beir_avg = sum(beir_vals) / len(beir_vals)
+            row_parts.append(f"{100 * beir_avg:.1f}")
+        else:
+            row_parts.append("-")
+
+        # LoTTE-only OOD
+        lotte_vals = [
+            table_values.get(model, {}).get(d)
+            for d in lotte
+            if table_values.get(model, {}).get(d) is not None
+        ]
+        if lotte_vals:
+            lotte_avg = sum(lotte_vals) / len(lotte_vals)
+            row_parts.append(f"{100 * lotte_avg:.1f}")
+        else:
+            row_parts.append("-")
+
+        # All OOD average: BEIR + LoTTE (exclude preferred)
+        all_ood_ds = [d for d in datasets if d not in preferred]
+        all_ood_vals = [
+            table_values.get(model, {}).get(d)
+            for d in all_ood_ds
+            if table_values.get(model, {}).get(d) is not None
+        ]
+        if all_ood_vals:
+            all_ood_avg = sum(all_ood_vals) / len(all_ood_vals)
+            row_parts.append(f"{100 * all_ood_avg:.1f}")
         else:
             row_parts.append("-")
 
@@ -361,31 +593,3 @@ def dataframe_to_latex(
     latex_lines.append("\\end{table*}")
 
     return "\n".join(latex_lines)
-
-
-def _read_results_csv(path: Path) -> pd.DataFrame:
-    # results.csv uses a 3-line header to form a MultiIndex
-    return pd.read_csv(path, header=[0, 1, 2])
-
-
-if __name__ == "__main__":
-    repo_root = Path("/home/vast/target_dir/franken_minilm/experiments/ettin_32M_masking_step2/dry-run/results") # Path(__file__).resolve().parents[1]
-    csv_path = repo_root / "results.csv"
-    if not csv_path.exists():
-        print(f"Could not find results.csv at {csv_path}", file=sys.stderr)
-        raise SystemExit(1)
-
-    df = _read_results_csv(csv_path)
-    # Try to load statistical significance results (optional)
-    sig_csv = repo_root / "statistical_significance_results.csv"
-    sig_df = None
-    if sig_csv.exists():
-        try:
-            sig_df = pd.read_csv(sig_csv)
-        except Exception:
-            sig_df = None
-
-    latex = dataframe_to_latex(
-        df, caption="NDCG@10 results", label="tab:ndcg10", sig_df=sig_df
-    )
-    print(latex)

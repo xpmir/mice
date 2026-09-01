@@ -1,15 +1,18 @@
 from pathlib import Path
 import pandas as pd
 import logging
-from xpm_torch.utils.logging import easylog
-logger = easylog()
+
+logger = logging.getLogger(__name__)
+
 
 def compute_t_test_threshold(mean, var, n, alpha=0.05):
     """Compute the t-test threshold for a one-sided t-test given mean, variance, sample size, and significance level alpha."""
     from scipy import stats
 
     if n <= 1:
-        raise ValueError("Sample size n must be greater than 1 to compute t-test threshold.")
+        raise ValueError(
+            "Sample size n must be greater than 1 to compute t-test threshold."
+        )
 
     df = n - 1  # degrees of freedom
     t_critical = stats.t.ppf(1 - alpha, df)
@@ -17,14 +20,18 @@ def compute_t_test_threshold(mean, var, n, alpha=0.05):
     threshold = mean + t_critical * standard_error
     return threshold
 
+
 def load_measures_from_file(path: Path) -> pd.Series:
     """Load all measures from a detailed file as a Series indexed by (measure, query)."""
-    df = pd.read_csv(path, sep='\s+', header=None, names=["measure", "query", "value"])
+    df = pd.read_csv(path, sep="\s+", header=None, names=["measure", "query", "value"])
     df["measure"] = df["measure"].astype(str).str.strip()
     df["query"] = df["query"].astype(str).str.strip()
     df["value"] = df["value"].astype(float)
-    idx = pd.MultiIndex.from_arrays([df["measure"], df["query"]], names=["measure", "query"])
+    idx = pd.MultiIndex.from_arrays(
+        [df["measure"], df["query"]], names=["measure", "query"]
+    )
     return pd.Series(df["value"].values, index=idx)
+
 
 def combine_measures(tests_per_model: dict, nb_repetitions: int = 1) -> pd.DataFrame:
     """
@@ -86,7 +93,11 @@ def combine_measures(tests_per_model: dict, nb_repetitions: int = 1) -> pd.DataF
     for ds in datasets:
         ds_cols = [col for col in df.columns if col[0] == ds]
         baseline_cols = [col for col in ds_cols if col[1] == "baseline"]
-        other_cols = [col for col in ds_cols if col[1] not in ("baseline", "baselines_mean", "others_mean")]
+        other_cols = [
+            col
+            for col in ds_cols
+            if col[1] not in ("baseline", "baselines_mean", "others_mean")
+        ]
         if baseline_cols:
             df[(ds, "baselines_mean")] = df.loc[:, baseline_cols].mean(axis=1)
         if other_cols:
@@ -96,7 +107,10 @@ def combine_measures(tests_per_model: dict, nb_repetitions: int = 1) -> pd.DataF
     df.columns = pd.MultiIndex.from_tuples([tuple(c) for c in df.columns])
     return df
 
-def run_statistical_tests(tests_per_model: dict, nb_repetitions: int = 1) -> pd.DataFrame:
+
+def run_statistical_tests(
+    tests_per_model: dict, nb_repetitions: int = 1
+) -> pd.DataFrame:
     """
     Run t-tests between baseline and each other group, per dataset and per measure (across queries).
     Returns a DataFrame indexed by (dataset, measure, model) with columns [t_stat, p_value, n_baseline, n_other].
@@ -112,7 +126,9 @@ def run_statistical_tests(tests_per_model: dict, nb_repetitions: int = 1) -> pd.
     datasets = sorted({col[0] for col in df.columns})
     measures = df.index.get_level_values("measure").unique()
 
-    logger.info(f"Running statistical tests on datasets: {datasets} and measures: {measures.tolist()}")
+    logger.info(
+        f"Running statistical tests on datasets: {datasets} and measures: {measures.tolist()}"
+    )
 
     for dataset_key in datasets:
         # subset columns for this dataset (second level are group keys)
@@ -124,10 +140,16 @@ def run_statistical_tests(tests_per_model: dict, nb_repetitions: int = 1) -> pd.
 
         # identify baseline and other group columns (exclude summary *_mean)
         baseline_cols = [c for c in subset.columns if str(c) == "baseline"]
-        other_cols = [c for c in subset.columns if c not in baseline_cols and not str(c).endswith("_mean")]
+        other_cols = [
+            c
+            for c in subset.columns
+            if c not in baseline_cols and not str(c).endswith("_mean")
+        ]
         if not baseline_cols:
             # no baseline for this dataset, skip
-            logger.warning(f"No baseline group found for dataset {dataset_key}, skipping statistical tests for this dataset.")
+            logger.warning(
+                f"No baseline group found for dataset {dataset_key}, skipping statistical tests for this dataset."
+            )
             continue
         baseline_col = baseline_cols[0]
 
@@ -136,7 +158,9 @@ def run_statistical_tests(tests_per_model: dict, nb_repetitions: int = 1) -> pd.
                 measure_subset = subset.xs(measure, level="measure")
             except KeyError:
                 # measure not present for this dataset
-                logger.warning(f"Measure {measure} not found for dataset {dataset_key}, skipping.")
+                logger.warning(
+                    f"Measure {measure} not found for dataset {dataset_key}, skipping."
+                )
                 continue
 
             if measure_subset.empty:
@@ -152,7 +176,9 @@ def run_statistical_tests(tests_per_model: dict, nb_repetitions: int = 1) -> pd.
                 other_series = measure_subset[col]
 
                 # align queries and drop NaNs
-                common_idx = baseline_series.dropna().index.intersection(other_series.dropna().index)
+                common_idx = baseline_series.dropna().index.intersection(
+                    other_series.dropna().index
+                )
                 if len(common_idx) < 2:
                     results.append(
                         {
@@ -170,7 +196,9 @@ def run_statistical_tests(tests_per_model: dict, nb_repetitions: int = 1) -> pd.
                 b = baseline_series.loc[common_idx].astype(float)
                 o = other_series.loc[common_idx].astype(float)
 
-                t_stat, p_value = stats.ttest_ind(b, o, equal_var=False, nan_policy="omit")
+                t_stat, p_value = stats.ttest_ind(
+                    b, o, equal_var=False, nan_policy="omit"
+                )
                 results.append(
                     {
                         "dataset": dataset_key,

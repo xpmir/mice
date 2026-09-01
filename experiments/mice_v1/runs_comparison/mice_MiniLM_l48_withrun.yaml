@@ -1,0 +1,40 @@
+id: train_mice_miniLM_l4|8_ID_withruns
+title: "Mice-MiniLM Training"
+description:
+    Compare mice using 4 or 8 layers - saves the runs to compare the distributions of models
+
+module: MICE.experiments.mice_training
+parent: ../mice_MiniLM_l4.yaml
+# pre_experiment: pre_experiment
+
+nb_repetitions: 2
+
+
+retrieval:
+    requirements: duration=20h & cpu(cores=16) & cuda(mem=40G)
+    k: 1000
+    batch_size: 64
+
+base: microsoft/MiniLM-L12-H384-uncased
+n_interaction_layers: 3
+
+## Evaluation
+save_runs: true
+evaluation: #default = Minified tests
+    all_datasets: false
+    beir13: false
+    in_domain: true
+    datasets:
+        - trec2020
+        - trec2019
+        - nfcorpus
+        - touche
+        # - scidocs
+
+
+#### Params that are grid searched
+grid_search:
+    n_contextualization_layers:
+        values_list:
+            - 4
+            - 8

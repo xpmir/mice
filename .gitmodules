@@ -1,4 +1,16 @@
+[submodule "experimaestro-python"]
+	path = experimaestro-python
+	url = git@github.com:VictorMorand/experimaestro-python.git
+[submodule "experimaestro-ir"]
+	path = experimaestro-ir
+	url = git@github.com:experimaestro/experimaestro-ir.git
+	branch = master
+[submodule "datamaestro-ir"]
+	path = datamaestro-ir
+	url = git@github.com:xpmir/datamaestro_ir.git
 [submodule "xpm-torch"]
 	path = xpm-torch
-	url = git@github.com:experimaestro/xpm-torch.git
-	branch = CrossEncoders
+	url = https://github.com/experimaestro/xpm-torch.git
+[submodule "datamaestro"]
+	path = datamaestro
+	url = https://github.com/VictorMorand/datamaestro.git
