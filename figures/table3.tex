@@ -1,0 +1,35 @@
+\begin{table}[!h]
+\centering
+\caption{Reranking evaluation results (mean nDCG@10 over 5 seeds) of the experiments towards scaling MICE to bigger models. Reranking is performed over 1000 documents retrieved by BM25. $\uparrow$ and $\downarrow$ respectively marks a statistically significant difference between a fine-tuned model with a reworked architectures and its fine-tuned counterpart.}
+\resizebox{\columnwidth}{!}{
+\begin{tabular}{rccccc}
+\toprule
+\textbf{Model} & \textbf{F} & MSM & DL19 & DL20 & Avg\\
+\midrule
+BM25 &  & 23.0 & 51.2 & 47.7 & 42.5 \\
+\midrule
+MiniLM &  & 44.7 & 73.8 & 72.9 & 63.8 \\
+MICE(MiniLM) & $\ell$6+4  & 42.6 $\downarrow$ & 69.2 & 69.8 & 60.6 \\
+MICE(MiniLM) & $\ell$4+3  & 42.1 $\downarrow$ & 72.6 & 69.3 & 61.3 \\
+\midrule
+Ettin-17M & & 38.6 & 64.9 & 63.6 & 55.7 \\
+MICE(Ettin-17M) & $\ell$3+2 & 36.6 $\downarrow$ & 65.4 & 60.6 & 54.2 \\
+MICE(Ettin-17M) & $\ell$3+3 & 38.0 & 65.7 & 62.4 & 55.4 \\
+\midrule
+Ettin-32M &  & 42.8 & 70.5 & 69.3 & 60.9 \\
+MICE(Ettin-32M) & $\ell$4+3 & 39.4 $\downarrow$ & 68.2 & 65.5 & 57.7 \\
+MICE(Ettin-32M) & $\ell$6+2 & 41.4 $\downarrow$ & 69.5 & 68.7 & 59.9 \\
+MICE(Ettin-32M) & $\ell$6+3 & 41.9 $\downarrow$ & 69.3 & 68.4 & 59.8 \\
+\midrule
+Ettin-68M &  & 45.7 & 74.1 & 73.8 & 64.5 \\
+MICE(Ettin-68M) & $\ell$7+3 & 42.6 $\downarrow$ & 70.2 & 69.3 & 60.7 \\
+MICE(Ettin-68M) & $\ell$10+3 & 43.6 $\downarrow$ & 73.0 & 70.7 & 62.4 \\
+\midrule
+Ettin-150M &  & 46.4 & 75.1 & 74.1 & 65.2 \\
+MICE(Ettin-150M) & $\ell$8+3 & 44.6 $\downarrow$ & 73.3 & 71.8 & 63.2 \\
+MICE(Ettin-150M) & $\ell$11+3 & 45.0 $\downarrow$ & 74.4 & 71.9 & 63.8 \\
+\bottomrule
+\end{tabular}
+}
+\label{tab:MICE-scaling}
+\end{table}

@@ -1,0 +1,34 @@
+\begin{table}[h]
+\centering
+\caption{Masking off-shelf cross-encoders with our approach (\Cref{sec:masking}). Reranking is performed over 1000 documents retrieved by BM25.}
+\resizebox{\linewidth}{!}{
+\begin{tabular}{rrcccccc}
+\toprule
+& &\multicolumn{3}{c}{\textbf{In-domain}} & \multicolumn{2}{c}{\textbf{Average}} \\
+\cmidrule(lr){3-5}\cmidrule(lr){6-7}
+& \textbf{Re-Ranker} & MSM & DL19 & DL20 & ID & BEIR \\
+\midrule
+\multirow{4}{*}{\rotatebox{90}{\textbf{MiniLM}}} 
+ & Cross-Encoder      \hf & 45.7 & 75.5 & 73.6 & 64.9 & 49.5 \\
+ & + \cref{mask_step:0} \hf & 44.4 & 74.3 & 72.0 & 63.5 & 48.2 \\
+ & + \cref{mask_step:1} \hf & 44.4 & 73.4 & 72.0 & 63.2 & 48.0 \\
+ & + \cref{mask_step:2} \hf & 27.8 & 61.5 & 59.8 & 49.7 & 36.6 \\
+\midrule
+\multirow{4}{*}{\rotatebox{90}{\textbf{Ettin-17M}}} 
+& Cross-Encoder      \hf & 39.0 & 68.4 & 67.0 & 58.1 & 44.6 \\
+& + \cref{mask_step:0} \hf & 3.1 & 11.1 & 9.7 & 8.0 & 3.2 \\
+& + \cref{mask_step:1} \hf & 5.2 & 14.9 & 15.2 & 11.8 & 4.6 \\
+& + \cref{mask_step:2} \hf & 4.5 & 13.9 & 13.7 & 10.7 & 4.0 \\
+
+\midrule
+\multirow{4}{*}{\rotatebox{90}{\textbf{Ettin-32M}}} 
+ & Cross-Encoder      \hf & 43.7 & 70.8 & 71.3 & 61.9 & 48.1 \\
+ & + \cref{mask_step:0} \hf & 12.0 & 29.0 & 29.3 & 23.4 & 7.5 \\
+ & + \cref{mask_step:1} \hf & 27.0 & 56.4 & 52.9 & 45.4 & 26.8 \\
+ & + \cref{mask_step:2} \hf & 21.3 & 47.8 & 47.8 & 39.0 & 24.0 \\
+\bottomrule
+\end{tabular}
+}
+\vspace{-.3cm}
+\label{tab:MskEvals}
+\end{table}

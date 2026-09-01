@@ -1,0 +1,43 @@
+\begin{table*}[ht]
+\centering
+\caption{Re-ranking evaluation results (mean nDCG@10 over 5 seeds) of the experiments towards the final architecture. Mask() models are the models fine-tuned with all the masks described in Section \ref{sec:masking}. MICE() models follow the architecture described in \Cref{sec:MICE}. Reranking is performed over 1000 the documents retrieved by BM25. $ \uparrow $ and $ \downarrow $ respectively marks a statistically significant difference between a fine-tuned model with a reworked architectures (Mask or MICE and its fine-tuned counterpart.)}
+\resizebox{\textwidth}{!}{
+\begin{tabular}{rlcccccccccccccccccc}
+\toprule
+& &\multicolumn{3}{c}{\textbf{In-domain}} & \multicolumn{13}{c}{\textbf{BEIR (OOD)}} & \multicolumn{2}{c}{\textbf{Average}} \\
+\cmidrule(lr){3-5}\cmidrule(lr){6-18}\cmidrule(lr){19-20}
+& \textbf{Re-ranker}  & MSM & DL19 & DL20 & Ar & CF & DB & FE & Fi & HPQ & NFC & NQ & Q & SD & SF & T-v2 & T-C & ID & OOD \\
+\midrule
+& BM25 & 23.0 & 51.2 & 47.7 & 30.0 & 16.5 & 31.8 & 65.1 & 23.6 & 63.3 & 32.2 & 30.6 & 78.9 & 14.0 & 67.9 & 45.4 & 59.5 & 42.5 & 43.0 \\
+\multicolumn{2}{r}{ColBERTv2 \cite{santhanam2022colbertv2}}\hf & 45.0 & 74.6 & 73.4 & 33.8 & 17.0 & 44.3 & 73.0 & 34.2 & 66.2 & 33.4 & 53.9 & 86.3 & 14.1 & 63.8 & 34.2 & 66.7 & 64.3 & 47.8 \\
+\multicolumn{2}{r}{MiniLM-ColBERTv2} \ft & 37.3 & 67.8 & 66.3 & 31.4 & 17.3 & 32.1 & 71.5 & 26.0 & 55.4 & 29.9 & 44.9 & 83.2 & 11.3 & 60.8 & 27.3 & 62.6 & 57.2 & 42.6 \\
+%aai-ColBERTv2-small  & \hf  & 42.4 & 74.0 & 70.3 & 33.8 & 26.5 & 45.7 & 85.6 & 38.2 & 76.8 & 35.4 & 57.1 & 87.6 & 17.9 & 72.4 & 28.5 & 80.8 & 62.2 & 52.8 \\
+\midrule
+\multirow{4}{*}{\rotatebox{90}{\textbf{MiniLM}}} 
+ & \textbf{baseline} & 44.7 & 73.8 & 72.9 & 14.8 & 15.7 & 46.0 & 73.4 & 34.0 & 72.4 & 27.1 & 56.6 & 80.4 & 12.5 & 55.3 & 29.9 & 63.4 & 63.8 & 44.7 \\
+ & \cref{mask_step:3}-$\ell$4   & 43.9 & 73.0 & 70.9 & 10.4 $\downarrow$ & 26.0 $\uparrow$ & 44.2 & 80.4 $\uparrow$ & 36.3 & 72.3 & 33.4 $\uparrow$ & 54.3 $\downarrow$ & 71.1 $\downarrow$ & 14.9 $\uparrow$ & 68.2 $\uparrow$ & 35.5 & 66.5 & 62.6 & 47.2 \\
+ & MICE-$\ell$4+8 & 43.1 $\downarrow$ & 73.4 & 70.1 & 39.0 $\uparrow$ & 25.1 $\uparrow$ & 44.4 & 79.1 $\uparrow$ & 35.6 & 72.0 & 34.5 $\uparrow$ & 52.2 $\downarrow$ & 81.4 $\uparrow$ & 14.8 $\uparrow$ & 70.5 $\uparrow$ & 39.4 $\uparrow$ & 69.2 & 62.2 & 50.5 \\
+ & MICE-$\ell$4+3 & 42.1 $\downarrow$ & 72.6 & 69.3 & 41.0 $\uparrow$ & 24.4 $\uparrow$ & 43.7 & 79.8 $\uparrow$ & 34.7 & 71.3 $\downarrow$ & 34.3 $\uparrow$ & 51.4 $\downarrow$ & 81.4 $\uparrow$ & 14.9 $\uparrow$ & 69.2 $\uparrow$ & 39.5 $\uparrow$ & 69.4 & 61.3 & 50.4 \\
+ %& MICE-$\ell$6+4 & 42.6 $\downarrow$ & 69.2 & 69.8 & 36.2 $\uparrow$ & 25.6 $\uparrow$ & 41.9 $\downarrow$ & 78.1 $\uparrow$ & 35.4 & 69.3 $\downarrow$ & 34.1 $\uparrow$ & 51.7 $\downarrow$ & 81.2 $\uparrow$ & 14.4 $\uparrow$ & 69.9 $\uparrow$ & 38.4 & 68.7 & 60.6 & 49.6 \\
+\midrule
+\multirow{5}{*}{\rotatebox{90}{\textbf{Ettin-17M}}} 
+ & \textbf{baseline} & 38.6 & 64.9 & 63.6 & 12.9 & 21.0 & 33.6 & 77.5 & 31.0 & 60.5 & 31.5 & 45.7 & 76.7 & 12.2 & 66.1 & 36.4 & 66.7 & 55.7 & 44.0 \\
+ & \cref{mask_step:3}-$\ell$3   & 37.8 & 66.1 & 62.4 & 14.0 & 22.9 $\uparrow$ & 33.1 & 73.8 $\downarrow$ & 29.3 & 62.1 $\uparrow$ & 30.6 & 44.3 & 71.4 $\downarrow$ & 11.9 & 62.9 & 41.2 & 64.9 & 55.4 & 43.3 \\
+ & MICE-$\ell$3   & 37.7 & 66.1 & 62.2 & 20.1 $\uparrow$ & 19.1 $\downarrow$ & 33.3 & 68.0 $\downarrow$ & 24.4 $\downarrow$ & 62.0 $\uparrow$ & 29.9 & 42.8 $\downarrow$ & 81.3 $\uparrow$ & 9.6 $\downarrow$ & 67.0 & 40.2 & 66.6 & 55.3 & 43.4 \\
+ & MICE-$\ell$3+2 & 36.6 $\downarrow$ & 65.4 & 60.6 & 16.8 $\uparrow$ & 17.0 $\downarrow$ & 33.3 & 65.7 $\downarrow$ & 23.7 $\downarrow$ & 63.0 $\uparrow$ & 29.3 & 41.1 $\downarrow$ & 80.2 $\uparrow$ & 8.8 $\downarrow$ & 65.4 & 44.2 & 66.2 & 54.2 & 42.7 \\
+ & MICE-$\ell$3+3 & 38.0 & 65.7 & 62.4 & 20.2 $\uparrow$ & 19.1 $\downarrow$ & 33.9 & 67.5 $\downarrow$ & 24.5 $\downarrow$ & 63.1 $\uparrow$ & 29.9 & 43.1 $\downarrow$ & 80.8 $\uparrow$ & 9.2 $\downarrow$ & 67.3 & 44.2 & 67.3 & 55.4 & 43.9 \\
+\midrule
+\multirow{8}{*}{\rotatebox{90}{\textbf{Ettin-32M}}} 
+ & \textbf{baseline} & 42.8 & 70.5 & 69.3 & 12.0 & 23.4 & 41.1 & 82.3 & 36.4 & 69.5 & 33.7 & 52.1 & 79.0 & 14.5 & 68.8 & 41.2 & 72.0 & 60.9 & 48.2 \\
+ & \cref{mask_step:3}-$\ell$4 & 42.2 & 69.5 & 69.4 & 13.0 & 23.0 & 38.5 & 79.0 $\downarrow$ & 34.9 & 66.1 $\downarrow$ & 33.0 & 50.4 $\downarrow$ & 39.6 $\downarrow$ & 12.8 $\downarrow$ & 67.8 & 41.4 & 69.5 & 60.3 & 43.8 \\
+ & \cref{mask_step:3}-$\ell$6 & 41.9 & 69.4 & 68.6 & 9.2 $\downarrow$ & 22.9 & 37.8 & 78.3 $\downarrow$ & 34.4 & 65.0 $\downarrow$ & 32.8 & 49.8 $\downarrow$ & 37.8 $\downarrow$ & 12.4 $\downarrow$ & 66.8 & 40.8 & 68.7 & 59.9 & 42.8 \\
+ & MICE-$\ell$4 & - & - & - & - & - & - & - & - & - & - & - & - & - & - & - & - & - & - \\
+ & MICE-$\ell$6& 42.4 & 70.3 & 69.5 & 14.8 $\uparrow$ & 21.6 $\downarrow$ & 39.7 & 71.6 $\downarrow$ & 26.2 $\downarrow$ & 68.0 $\downarrow$ & 32.9 & 49.1 $\downarrow$ & 82.4 $\uparrow$ & 11.9 $\downarrow$ & 68.4 & 41.9 & 72.9 & 60.7 & 46.3 \\
+ & MICE-$\ell$4+3& 39.4 $\downarrow$ & 68.2 & 65.5 & 13.5 $\uparrow$ & 14.9 $\downarrow$ & 34.9 $\downarrow$ & 65.4 $\downarrow$ & 19.9 $\downarrow$ & 63.6 $\downarrow$ & 29.3 & 43.4 $\downarrow$ & 80.4 $\uparrow$ & 7.2 $\downarrow$ & 61.4 $\downarrow$ & 44.5 & 64.7 & 57.7 & 41.8 \\
+ & MICE-$\ell$6+2& 41.4 $\downarrow$ & 69.5 & 68.7 & 25.7 $\uparrow$ & 20.4 $\downarrow$ & 38.4 & 71.8 $\downarrow$ & 27.5 $\downarrow$ & 67.4 $\downarrow$ & 32.1 & 48.1 $\downarrow$ & 82.0 $\uparrow$ & 11.8 $\downarrow$ & 68.6 & 42.9 & 73.6 & 59.9 & 46.9 \\
+ & MICE-$\ell$6+3& 41.9 $\downarrow$ & 69.3 & 68.4 & 18.8 $\uparrow$ & 21.6 $\downarrow$ & 38.9 & 71.5 $\downarrow$ & 27.3 $\downarrow$ & 67.3 $\downarrow$ & 32.8 & 48.5 $\downarrow$ & 82.0 $\uparrow$ & 11.9 $\downarrow$ & 68.9 & 41.9 & 71.5 & 59.8 & 46.4 \\
+\bottomrule
+\end{tabular}
+}
+\label{tab:MICE-evals}
+\end{table*}

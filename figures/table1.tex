@@ -1,0 +1,45 @@
+\begin{table*}[h]
+\centering
+\caption{Reranking evaluation results (mean nDCG@10 over 5 seeds) for the masking experiment (\Cref{sec:masking}), comparing models with and without masking (\textbf{M} column indicates the level of masking) and fine-tuning (\ft versus  - \hf pretrained models available on huggingface). Reranking is performed over 1000 documents retrieved by BM25. $\uparrow$ and $\downarrow$ respectively marks a statistically significant difference between a fine-tuned model, \textit{with a mask}, and its fine-tuned counterpart.}
+\resizebox{\textwidth}{!}{
+\begin{tabular}{rrcccccccccccccccccc}
+\toprule
+& &\multicolumn{3}{c}{\textbf{In-domain}} & \multicolumn{13}{c}{\textbf{BEIR (OOD)}} & \multicolumn{2}{c}{\textbf{Average}} \\
+\cmidrule(lr){3-5}\cmidrule(lr){6-18}\cmidrule(lr){19-20}
+& \textbf{Re-Ranker} & MSM & DL19 & DL20 & Ar & CF & DB & FE & Fi & HPQ & NFC & NQ & Q & SD & SF & T-v2 & T-C & ID & OOD \\
+\midrule
+\multicolumn{2}{r}{BM25}& 23.0 & 51.2 & 47.7 & 30.0 & 16.5 & 31.8 & 65.1 & 23.6 & 63.3 & 32.2 & 30.6 & 78.9 & 14.0 & 67.9 & 45.4 & 59.5 & 42.5 & 43.0 \\
+\multicolumn{2}{r}{PreTTR \cite{macavaneyEfficientDocumentReRanking2020} ($\ell4$)\ft } & 44.5 & 73.8 & 71.9 & 16.8 & 27.5 & 45.0 & 83.5 & 37.4 & 72.2 & 33.1 & 56.1 & 81.0 & 15.3 & 68.8 & 35.8 & 67.4 & 63.4 & 49.2 \\
+\multicolumn{2}{r}{PreTTR \cite{macavaneyEfficientDocumentReRanking2020} ($\ell6$)\ft } & 43.8 & 71.3 & 71.7 & 4.4 & 21.6 & 43.7 & 77.4 & 34.8 & 68.9 & 30.3 & 54.4 & 76.3 & 13.7 & 63.6 & 34.5 & 66.5 & 62.3 & 45.4 \\
+\multicolumn{2}{r}{Sparse CE \cite{schlattInvestigatingEffectsSparse2024} \ft} & 44.1 & 74.3 & 70.7 & 6.1 & 20.4 & 44.5 & 80.0 & 34.9 & 72.0 & 29.2 & 53.8 & 74.6 & 14.5 & 61.5 & 31.0 & 60.8 & 63.0 & 44.9 \\
+\midrule
+\multirow{6}{*}{\rotatebox{90}{\textbf{MiniLM}}} 
+ & Cross-Encoder           \hf & 45.7 & 75.5 & 73.6 & 20.6 & 25.8 & 46.6 & 82.7 & 36.6 & 74.1 & 32.5 & 56.3 & 82.0 & 15.3 & 68.5 & 35.2 & 66.8 & 64.9 & 49.5 \\
+ & Baseline                \ft & 44.7 & 73.8 & 72.9 & 14.8 & 15.7 & 46.0 & 73.4 & 34.0 & 72.4 & 27.1 & 56.6 & 80.4 & 12.5 & 55.3 & 29.9 & 63.4 & 63.8 & 44.7 \\
+ & \cref{mask_step:0} \ft & 44.6 & 73.8 & 73.3 & 14.6 & 19.0 $\uparrow$ & 45.6 & 80.6 $\uparrow$ & 35.7 & 72.3 & 28.2 & 56.5 & 78.6 $\downarrow$ & 13.6 & 58.3 & 34.5 & 64.5 & 63.9 & 46.3 \\
+ & \cref{mask_step:1} \ft & 44.8 & 73.8 & 73.3 & 25.4 $\uparrow$ & 26.2 $\uparrow$ & 45.9 & 82.7 $\uparrow$ & 37.4 & 73.8 $\uparrow$ & 33.7 $\uparrow$ & 56.4 & 79.5 $\downarrow$ & 15.4 $\uparrow$ & 68.8 $\uparrow$ & 38.0 & 68.9 & 64.0 & 50.2 \\
+ & \cref{mask_step:2} \ft & 44.1 & 73.1 & 71.8 & 14.8 & 26.8 $\uparrow$ & 45.4 & 81.4 $\uparrow$ & 37.4 & 72.5 & 34.5 $\uparrow$ & 55.2 & 77.5 $\downarrow$ & 15.6 $\uparrow$ & 69.4 $\uparrow$ & 37.5 & 68.8 & 63.0 & 49.0 \\
+ & \cref{mask_step:3}-$\ell$4 \ft & 43.9 & 73.0  & 70.9 & 10.4 $\downarrow$ & 26.0 $\uparrow$ & 44.2 & 80.4 $\uparrow$ & 36.3 & 72.3 & 33.4 $\uparrow$ & 54.3 $\downarrow$ & 71.1 $\downarrow$ & 14.9 $\uparrow$ & 68.2 $\uparrow$ & 35.5 & 66.5 & 62.6 & 47.2 \\
+ & \cref{mask_step:3}-$\ell$6 \ft & 43.3 $\downarrow$ & 70.9 & 70.8 & 7.8 $\downarrow$ & 21.6 $\uparrow$ & 42.5 & 78.7 $\uparrow$ & 36.6 & 69.3 $\downarrow$ & 34.0 $\uparrow$ & 53.2 $\downarrow$ & 68.3 $\downarrow$ & 14.6 $\uparrow$ & 69.1 $\uparrow$ & 36.1 & 65.8 & 61.7 & 46.0 \\
+\midrule
+\multirow{6}{*}{\rotatebox{90}{\textbf{Ettin-17M}}} 
+& Cross-Encoder           \hf & 39.0 & 68.4 & 67.0 & 18.3 & 21.9 & 36.3 & 74.5 & 29.9 & 64.8 & 30.7 & 46.2 & 78.6 & 12.5 & 67.8 & 31.6 & 66.7 & 58.1 & 44.6 \\
+& Baseline                \ft & 38.5 & 65.1 & 63.5 & 12.8 & 21.0 & 33.4 & 77.2 & 31.0 & 60.0 & 31.4 & 45.7 & 76.7 & 12.2 & 66.0 & 36.9 & 66.6 & 55.7 & 43.9 \\
+& \cref{mask_step:0} \ft & 38.6 & 65.2 & 63.1 & 9.0 $\downarrow$ & 21.5 & 33.1 & 76.5 & 30.5 & 61.6 $\uparrow$ & 31.5 & 45.9 & 71.9 $\downarrow$ & 12.0 & 65.6 & 37.7 & 65.2 & 55.7 & 43.2 \\
+& \cref{mask_step:1} \ft & 38.2 & 65.5 & 62.9 & 13.9 & 22.7 & 33.7 & 75.7 $\downarrow$ & 30.9 & 64.1 $\uparrow$ & 31.4 & 45.4 & 79.5 $\uparrow$ & 12.5 & 65.8 & 39.1 & 64.4 & 55.5 & 44.6 \\
+& \cref{mask_step:2} \ft & 38.1 & 65.3 & 62.2 & 15.6 $\uparrow$ & 22.2 & 34.1 & 75.6 $\downarrow$ & 30.0 & 63.7 $\uparrow$ & 31.4 & 44.7 & 72.1 $\downarrow$ & 12.1 & 64.7 & 39.7 & 64.3 & 55.2 & 43.9 \\
+& \cref{mask_step:3}-$\ell3$ \ft & 37.8 & 66.1 & 62.4 & 14.0 & 22.9 $\uparrow$ & 33.1 & 73.8 $\downarrow$ & 29.3 & 62.1 $\uparrow$ & 30.6 & 44.3 & 71.4 $\downarrow$ & 11.9 & 62.9 & 41.2 & 64.9 & 55.4 & 43.3 \\
+
+\midrule
+\multirow{6}{*}{\rotatebox{90}{\textbf{Ettin-32M}}} 
+ & Cross-Encoder           \hf & 43.7 & 70.8 & 71.3 & 10.0 & 23.5 & 42.5 & 81.8 & 36.1 & 70.9 & 33.8 & 52.7 & 79.8 & 14.9 & 70.2 & 38.1 & 71.6 & 61.9 & 48.1 \\
+ & Baseline                \ft & 43.1 & 70.3 & 69.7 & 11.9 & 24.0 & 41.3 & 82.8 & 36.6 & 70.0 & 33.8 & 52.4 & 79.6 & 14.6 & 68.8 & 41.1 & 71.8 & 61.0 & 48.3 \\
+ & \cref{mask_step:0} \ft & 42.8 & 70.0 & 69.7 & 14.2 $\uparrow$ & 23.9 & 40.4 & 82.6 & 36.7 & 69.8 & 34.0 & 51.9 & 71.4 $\downarrow$ & 14.4 & 70.0 & 40.2 & 71.3 & 60.8 & 47.8 \\
+ & \cref{mask_step:1} \ft & 42.6 & 70.8 & 69.2 & 18.2 $\uparrow$ & 25.8 & 40.6 & 81.8 $\downarrow$ & 36.9 & 70.6 & 34.1 & 51.9 & 77.3 $\downarrow$ & 14.5 & 70.3 & 39.7 & 71.5 & 60.9 & 48.7 \\
+ & \cref{mask_step:2} \ft & 42.3 & 69.6 & 68.5 & 17.0 $\uparrow$ & 24.0 & 40.4 & 79.0 $\downarrow$ & 36.4 & 69.2 $\downarrow$ & 34.1 & 50.8 & 60.0 $\downarrow$ & 14.2 & 71.4 & 39.7 & 70.8 & 60.1 & 46.7 \\
+ & \cref{mask_step:3}-$\ell$6 \ft& 41.9 & 69.4 & 68.6 & 9.2 $\downarrow$ & 22.9 & 37.8 & 78.3 $\downarrow$ & 34.4 & 65.0 $\downarrow$ & 32.8 & 49.8 $\downarrow$ & 37.8 $\downarrow$ & 12.4 $\downarrow$ & 66.8 & 40.8 & 68.7 & 59.9 & 42.8 \\
+\bottomrule
+\end{tabular}
+}
+\label{tab:MskEvals}
+\end{table*}
