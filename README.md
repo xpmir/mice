@@ -4,8 +4,6 @@
 <div>
     <a href=https://scholar.google.com/citations?user=QGCo1PAAAAAJ&hl target='_blank'>Mathias Vast*</a><sup>12</sup>&emsp;
     <a href='https://victormorand.github.io/' target='_blank'>Victor Morand*</a><sup>1</sup>&emsp;
-    <a target='_blank'>Basile van Cooten</a><sup>2</sup>&emsp;
-    <a href='https://scholar.google.fr/citations?user=3gUQp6oAAAAJ&hl' target='_blank'>Laure Soulier</a><sup>1</sup>&emsp;
     <a href='https://scholar.google.com/citations?user=V-Nyr0wAAAAJ' target='_blank'>Josiane Mothe</a><sup>3</sup>&emsp;
     <a href='https://www.piwowarski.fr' target='_blank'>Benjamin Piwowarski</a><sup>1</sup>&emsp;
 </div>
@@ -75,7 +73,7 @@ If you use our work, please cite it as:
 ```yaml
 @misc{vast2026miceminimalinteractioncrossencoders,
       title={MICE: Minimal Interaction Cross-Encoders for efficient Re-ranking},
-      author={Mathias Vast and Victor Morand and Basile van Cooten and Laure Soulier and Josiane Mothe and Benjamin Piwowarski},
+      author={Mathias Vast and Victor Morand and Josiane Mothe and Benjamin Piwowarski},
       year={2026},
       eprint={2602.16299},
       archivePrefix={arXiv},
