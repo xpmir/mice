@@ -1,0 +1,23 @@
+\begin{table}[h]
+\centering
+\caption{Efficiency comparison of retrieval models}
+\label{tab:efficiency}
+\resizebox{\linewidth}{!}{
+\begin{tabular}{rccccc}
+\toprule
+\textbf{Model} & \textbf{#param} & \textbf{Latency (ms)} & \textbf{Docs/s} & \textbf{Peak Mem} \\
+\midrule
+\multicolumn{5}{c}{\textit{With docs precompute}} \\
+\midrule
+MICE $\ell$4+3 & 26.3M & $113.28 \pm 12.05$ & 1130 & 598.44 MB \\
+ColBERT & 33.4M & $130.36 \pm 7.86$ & 982 & 331.77 MB \\
+\midrule
+\multicolumn{5}{c}{\textit{Without docs precompute}} \\
+\midrule
+Cross-Encoder & 33.4M & $470.22 \pm 4.87$ & 267 & 1193.52 MB \\
+MICE $\ell$4+3 & 33.4M & $241.05 \pm 6.25$ & 531 & 1071.61 MB \\
+ColBERT & 33.4M & $498.48 \pm 8.65$ & 257 & 1195.27 MB \\
+\bottomrule
+\end{tabular}
+}
+\end{table}

@@ -1,0 +1,40 @@
+\begin{table}
+\caption{Evaluation Results. Shading: \colorbox{red!15}{red} above median, \colorbox{blue!15}{blue} below.}
+\label{tab:results}
+\begin{tabular}{llccccccccccccccccccccccccccccccccccccccccccccccccccccccc}
+\toprule
+ & FLOPs(%) & MSM & DL19 & DL20 & Ar & CF & DB & FE & Fi & HPQ & NFC & NQ & Q & SD & SF & T-v2 & T-C & In Domain & BEIR13 \\
+Re-Ranker &  &  &  &  &  &  &  &  &  &  &  &  &  &  &  &  &  &  &  \\
+\midrule
+MICE-$\ell$4+3 & 0.40 & 43.2$\downarrow$ & 73.4 & 70.9$\downarrow$ & \textbf{35.6}$\uparrow$ & 24.6$\uparrow$ & 44.1$\downarrow$ & 80.0 & 34.5 & 71.0$\downarrow$ & 34.3$\uparrow$ & 51.9$\downarrow$ & \textbf{81.5} & 16.0$\uparrow$ & 69.2$\uparrow$ & \textbf{31.7}$\uparrow$ & 72.0$\uparrow$ & 62.5$\downarrow$ & 49.7$\uparrow$ \\
+MICE-$\ell$8+3 & 0.73 & 43.3$\downarrow$ & 70.5$\downarrow$ & 69.7$\downarrow$ & 33.4$\uparrow$ & 24.9$\uparrow$ & 41.8$\downarrow$ & 80.1 & 36.3$\uparrow$ & 68.7$\downarrow$ & 33.7$\uparrow$ & 52.5$\downarrow$ & 78.6$\downarrow$ & 15.7$\uparrow$ & 68.9$\uparrow$ & 29.6$\uparrow$ & 72.9$\uparrow$ & 61.1$\downarrow$ & 49.0$\uparrow$ \\
+MICE-$\ell$8+3 Lex & 0.75 & 43.5$\downarrow$ & 72.7$\downarrow$ & 71.2$\downarrow$ & 35.3$\uparrow$ & 26.8$\uparrow$ & 42.7$\downarrow$ & 82.0$\uparrow$ & \textbf{36.8}$\uparrow$ & 71.3$\downarrow$ & \textbf{34.5}$\uparrow$ & 53.4$\downarrow$ & 80.9 & 16.1$\uparrow$ & 70.3$\uparrow$ & 31.4$\uparrow$ & \textbf{75.1}$\uparrow$ & 62.4$\downarrow$ & 50.5$\uparrow$ \\
+MICE-$\ell$8+all Lex & 0.78 & 43.8$\downarrow$ & 71.9$\downarrow$ & 70.6$\downarrow$ & 34.9$\uparrow$ & \textbf{27.0}$\uparrow$ & 43.2$\downarrow$ & \textbf{82.3}$\uparrow$ & 36.5$\uparrow$ & 71.7$\downarrow$ & 34.3$\uparrow$ & 53.5$\downarrow$ & 80.4 & \textbf{16.1}$\uparrow$ & \textbf{70.9}$\uparrow$ & 31.5$\uparrow$ & 74.6$\uparrow$ & 62.1$\downarrow$ & \textbf{50.5}$\uparrow$ \\
+MORES-$\ell$10-d12+2 & 1.02 & 43.5$\downarrow$ & 72.0$\downarrow$ & 70.1$\downarrow$ & 29.1$\uparrow$ & 25.8$\uparrow$ & 41.8$\downarrow$ & 78.8 & 36.3$\uparrow$ & 68.7$\downarrow$ & 34.0$\uparrow$ & 52.6$\downarrow$ & 78.6$\downarrow$ & 15.8$\uparrow$ & 69.7$\uparrow$ & 29.4$\uparrow$ & 71.6$\uparrow$ & 61.9$\downarrow$ & 48.6$\uparrow$ \\
+\midrule
+\textbf{MiniLM - Baseline} & 1 & \textbf{45.0} & \textbf{74.0} & \textbf{73.5} & 16.5 & 11.9 & \textbf{46.2} & 74.7 & 32.5 & \textbf{72.9} & 24.8 & \textbf{56.6} & 81.3 & 12.1 & 49.1 & 24.5 & 68.6 & \textbf{64.1} & 44.0 \\
+PreTTR-$\ell$8+4 & 0.98 & 43.8$\downarrow$ & 71.8$\downarrow$ & 70.9$\downarrow$ & 2.6$\downarrow$ & 21.8$\uparrow$ & 43.3$\downarrow$ & 80.8 & 36.0$\uparrow$ & 68.8$\downarrow$ & 33.8$\uparrow$ & 53.9$\downarrow$ & 78.4 & 16.0$\uparrow$ & 68.8$\uparrow$ & 27.4$\uparrow$ & 72.8$\uparrow$ & 62.2$\downarrow$ & 46.5$\uparrow$ \\
+\midrule
+\textbf{ELECTRA - Baseline} & 1 & \textbf{46.1} & \textbf{74.7} & \textbf{74.5} & 21.9 & 26.5 & \textbf{47.5} & \textbf{84.1} & \textbf{39.9} & \textbf{74.7} & \textbf{35.6} & \textbf{58.9} & 82.2 & \textbf{17.3} & 71.9 & 27.6 & \textbf{75.1} & \textbf{65.1} & 51.0 \\
+MICE-$\ell$8+3 & 0.74 & 44.8$\downarrow$ & 73.5 & 72.7$\downarrow$ & 40.2$\uparrow$ & \textbf{27.9}$\uparrow$ & 45.1$\downarrow$ & 80.5$\downarrow$ & 38.6$\downarrow$ & 71.6$\downarrow$ & 34.7$\downarrow$ & 55.3$\downarrow$ & 83.1 & 16.5$\downarrow$ & \textbf{72.0} & \textbf{29.1} & 74.9 & 63.7$\downarrow$ & 51.5$\uparrow$ \\
+MICE-$\ell$8+3 Lex & 0.76 & 44.8$\downarrow$ & 73.2$\downarrow$ & 72.7$\downarrow$ & \textbf{40.8}$\uparrow$ & 27.3$\uparrow$ & 45.6$\downarrow$ & 81.2$\downarrow$ & 38.5 & 73.0$\downarrow$ & 34.8$\downarrow$ & 55.7$\downarrow$ & \textbf{83.1}$\uparrow$ & 16.7$\downarrow$ & 71.4$\downarrow$ & 29.0 & 73.6$\downarrow$ & 63.6$\downarrow$ & \textbf{51.6}$\uparrow$ \\
+\midrule
+\textbf{Ettin17 - Baseline} & 1 & \textbf{39.7} & \textbf{68.6} & \textbf{67.1} & 15.0 & \textbf{22.5} & \textbf{36.0} & \textbf{73.7} & 30.5 & \textbf{63.8} & \textbf{30.4} & \textbf{46.7} & 78.8 & \textbf{14.0} & 66.3 & 26.2 & \textbf{72.8} & \textbf{58.4} & 44.3 \\
+MICE-$\ell$3+3 & 0.58 & 39.1$\downarrow$ & 66.8$\downarrow$ & 63.8$\downarrow$ & \textbf{27.5}$\uparrow$ & 21.3 & 34.3$\downarrow$ & 67.0$\downarrow$ & \textbf{30.6} & 62.5 & 29.7 & 45.4$\downarrow$ & \textbf{80.2} & 12.9$\downarrow$ & \textbf{66.8} & \textbf{27.0} & 71.8 & 56.6$\downarrow$ & \textbf{44.4} \\
+\midrule
+\textbf{Ettin32 - Baseline} & 1 & \textbf{43.8} & \textbf{71.5} & \textbf{71.7} & 10.2 & \textbf{25.0} & \textbf{42.0} & \textbf{83.4} & \textbf{36.6} & \textbf{71.1} & 33.1 & \textbf{53.0} & 81.3 & \textbf{16.0} & 69.9 & \textbf{31.0} & \textbf{76.9} & \textbf{62.4} & \textbf{48.4} \\
+MICE-$\ell$4+4 & 0.56 & 41.9$\downarrow$ & 70.3$\downarrow$ & 68.5$\downarrow$ & 28.6$\uparrow$ & 22.0$\downarrow$ & 39.3$\downarrow$ & 70.7$\downarrow$ & 31.3$\downarrow$ & 67.6$\downarrow$ & 32.4 & 49.0$\downarrow$ & 81.0 & 14.4$\downarrow$ & 67.8 & 23.8$\downarrow$ & 68.9$\downarrow$ & 60.2$\downarrow$ & 45.9$\downarrow$ \\
+MICE-$\ell$6+3 & 0.71 & 42.7$\downarrow$ & 70.6$\downarrow$ & 70.0$\downarrow$ & \textbf{29.6}$\uparrow$ & 23.2$\downarrow$ & 39.6$\downarrow$ & 72.3$\downarrow$ & 32.9$\downarrow$ & 69.0$\downarrow$ & 33.1 & 50.7$\downarrow$ & 82.6 & 15.1$\downarrow$ & \textbf{70.0} & 24.5$\downarrow$ & 72.9$\downarrow$ & 61.1$\downarrow$ & 47.4 \\
+MICE-$\ell$6+all Lex & 0.80 & 42.6$\downarrow$ & 71.5 & 69.9$\downarrow$ & 22.1 & 22.4$\downarrow$ & 39.8$\downarrow$ & 73.2$\downarrow$ & 33.3$\downarrow$ & 69.0$\downarrow$ & \textbf{33.2} & 50.8$\downarrow$ & \textbf{82.9}$\uparrow$ & 15.0$\downarrow$ & 69.4 & 24.2$\downarrow$ & 73.1$\downarrow$ & 61.4$\downarrow$ & 46.8$\downarrow$ \\
+\midrule
+\textbf{Ettin68 - Baseline} & 1 & \textbf{45.6} & \textbf{74.4} & \textbf{73.7} & 15.8 & \textbf{27.7} & \textbf{47.0} & \textbf{86.1} & \textbf{40.3} & \textbf{74.0} & \textbf{35.0} & \textbf{57.4} & 81.4 & \textbf{17.2} & \textbf{72.5} & \textbf{31.3} & \textbf{81.8} & \textbf{64.6} & \textbf{51.3} \\
+MICE-$\ell$10+4+Lex & 0.63 & 43.8$\downarrow$ & 71.4$\downarrow$ & 72.2$\downarrow$ & \textbf{30.5}$\uparrow$ & 21.6$\downarrow$ & 42.6$\downarrow$ & 75.8$\downarrow$ & 35.8$\downarrow$ & 71.2$\downarrow$ & 33.5$\downarrow$ & 53.5$\downarrow$ & 83.4 & 15.3$\downarrow$ & 70.0 & 27.2$\downarrow$ & 75.6$\downarrow$ & 62.5$\downarrow$ & 48.9$\downarrow$ \\
+MICE-$\ell$8+3 & 0.48 & 44.7$\downarrow$ & 72.0$\downarrow$ & 72.5$\downarrow$ & 28.0$\uparrow$ & 24.3$\downarrow$ & 44.5$\downarrow$ & 76.9$\downarrow$ & 36.2$\downarrow$ & 71.0$\downarrow$ & 34.6$\downarrow$ & 54.0$\downarrow$ & \textbf{83.7} & 16.2$\downarrow$ & 70.8 & 26.7$\downarrow$ & 77.3$\downarrow$ & 63.1$\downarrow$ & 49.6$\downarrow$ \\
+MICE-$\ell$8+3+Lex & 0.50 & 44.5$\downarrow$ & 72.3$\downarrow$ & 72.2$\downarrow$ & 29.9$\uparrow$ & 23.8$\downarrow$ & 44.1$\downarrow$ & 77.9$\downarrow$ & 36.0$\downarrow$ & 71.3$\downarrow$ & 34.4$\downarrow$ & 53.8$\downarrow$ & 83.4 & 16.2$\downarrow$ & 71.3 & 28.0 & 77.3$\downarrow$ & 63.0$\downarrow$ & 49.8$\downarrow$ \\
+\midrule
+\textbf{Ettin150 - Baseline} & 1 & \textbf{46.2} & \textbf{74.8} & \textbf{74.0} & 21.9 & \textbf{28.3} & \textbf{47.7} & \textbf{85.0} & \textbf{40.9} & \textbf{75.4} & \textbf{35.9} & \textbf{59.0} & 77.4 & \textbf{18.3} & \textbf{74.9} & \textbf{29.2} & \textbf{82.2} & \textbf{65.0} & \textbf{52.0} \\
+MICE-$\ell$12+3 & 0.60 & 45.5$\downarrow$ & 74.6 & 73.7 & \textbf{39.8}$\uparrow$ & 23.9$\downarrow$ & 46.4$\downarrow$ & 78.7$\downarrow$ & 37.7$\downarrow$ & 73.4$\downarrow$ & 35.2$\downarrow$ & 56.6$\downarrow$ & 83.9 & 16.8$\downarrow$ & 74.2 & 27.1$\downarrow$ & 79.9$\downarrow$ & 64.6 & 51.8 \\
+MICE-$\ell$12+4 & 0.65 & 45.6$\downarrow$ & 74.3 & 73.7 & 35.3$\uparrow$ & 23.6$\downarrow$ & 46.4$\downarrow$ & 78.8$\downarrow$ & 37.5$\downarrow$ & 74.1$\downarrow$ & 35.2$\downarrow$ & 56.8$\downarrow$ & \textbf{84.7} & 17.0$\downarrow$ & 73.6 & 27.4 & 80.5 & 64.5$\downarrow$ & 51.6 \\
+\bottomrule
+\end{tabular}
+\end{table}
