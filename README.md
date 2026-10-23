@@ -1,13 +1,12 @@
 <div align="center">
 
-<h1>Reproducing and Comparing Distillation Techniques for Cross-Encoders</h1>
+<h1>MICE 🐭 - Minimal Interaction Cross-Encoders</h1>
 <div>
-    <a href='https://victormorand.github.io/' target='_blank'>Victor Morand</a><sup>1</sup>&emsp;
-    <a href=https://scholar.google.com/citations?user=QGCo1PAAAAAJ&hl target='_blank'>Mathias Vast</a><sup>1,2</sup>&emsp;
-    <a target='_blank'>Basile van Cooten</a><sup>2</sup>&emsp;
-    <a href='https://scholar.google.fr/citations?user=3gUQp6oAAAAJ&hl' target='_blank'>Laure Soulier</a><sup>1</sup>&emsp;
-    <a href='https://scholar.google.com/citations?user=V-Nyr0wAAAAJ' target='_blank'>Josiane Mothe</a><sup>3</sup>&emsp;
-    <a href='https://www.piwowarski.fr' target='_blank'>Benjamin Piwowarski</a><sup>1</sup>&emsp;
+    <a href="https://scholar.google.com/citations?user=QGCo1PAAAAAJ&hl" target="_blank">Mathias Vast*</a><sup>1,2</sup>&emsp;
+    <a href="https://victormorand.github.io/" target="_blank">Victor Morand*</a><sup>1</sup>&emsp;
+    <a href="https://yzong12138.github.io/" target="_blank">Yuxuan Zong</a><sup>1</sup>&emsp;
+    <a href="https://scholar.google.com/citations?user=V-Nyr0wAAAAJ" target="_blank">Josiane Mothe</a><sup>3</sup>&emsp;
+    <a href="https://www.piwowarski.fr" target="_blank">Benjamin Piwowarski</a><sup>1</sup>&emsp;
 </div>
 <br>
 <div>
@@ -17,95 +16,75 @@
 </div>
 <br>
 
-[![Paper](https://img.shields.io/badge/Paper-Arxiv-red)](http://arxiv.org/abs/2603.03010)
-[![All Models](https://img.shields.io/badge/🤗%20Hugging%20Face%20Models-blue)](https://huggingface.co/collections/xpmir/reproducing-cross-encoders)
-[![Demo Space](https://img.shields.io/badge/🤗%20Hugging%20Face-Interactive%20Demo-yellow)](https://huggingface.co/spaces/hugging-apps/cross-encoder-reranker-demo)
-[![Interactive Pipeline](https://img.shields.io/badge/Interactive%20DAG-Experimaestro-purple)](https://xpmir.github.io/cross-encoders/)
-[![GitHub](https://img.shields.io/badge/GitHub-Code-blue)](https://github.com/xpmir/cross-encoders)
+[![Paper](https://img.shields.io/badge/Paper-Arxiv-red)](https://arxiv.org/abs/2602.16299)
+[![GitHub](https://img.shields.io/badge/GitHub-Code-blue)](https://github.com/xpmir/mice)
+[![Fork of](https://img.shields.io/badge/Fork%20of-xpmir%2Fcross--encoders-lightgrey)](https://github.com/xpmir/cross-encoders)
 [![uv](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/astral-sh/uv/main/assets/badge/v0.json)](https://github.com/astral-sh/uv)
 [![Experimaestro](https://img.shields.io/badge/orchestrated%20by-experimaestro-orange)](https://github.com/experimaestro/experimaestro-python)
+
 </div>
 
-### 📄 Paper Abstract
+### 📄 Abstract (EMNLP2026)
 
-> Recent advances in Information Retrieval have established transformer-based cross-encoders as a keystone in IR. Recent studies have focused on knowledge distillation and showed that, with the right strategy, traditional cross-encoders could reach the level of effectiveness of LLM re-rankers. Yet, comparisons with previous training strategies, including distillation from strong cross-encoder teachers, remain unclear. In addition, few studies cover a similar range of backbone encoders, while substantial improvements have been made in this area since BERT. This lack of comprehensive studies in controlled environments makes it difficult to identify robust design choices. In this work, we reproduce [Schlatt et al. 2025](http://arxiv.org/abs/2405.07920) LLM-based distillation strategy and compare it to [Hofstätter et al. 2020](https://www.semanticscholar.org/paper/Improving-Efficient-Neural-Ranking-Models-with-Hofst%C3%A4tter-Althammer/102f40abbd5f64a0f7c341ceaf8af4fb536e35f8) approach based on an ensemble of cross-encoder teachers, as well as other supervised objectives, to fine-tune a large range of cross-encoders, from the original BERT and its follow-ups RoBERTa, ELECTRA and DeBERTa-v3, to the more recent ModernBERT. We evaluate all models on both in-domain (TREC-DL and MS MARCO dev) and out-of-domain datasets (BEIR, LoTTE, and Robust04). Our results show that objectives emphasizing relative comparisons---pairwise MarginMSE and listwise InfoNCE---consistently outperform pointwise baselines across all backbones and evaluation settings, and that objective choice can yield gains comparable to scaling the backbone architecture.
+> Cross-encoders deliver state-of-the-art ranking effectiveness in information retrieval, but have a high inference cost. This prevents them from being used as first-stage rankers, but also incurs a cost when re-ranking documents. Prior work has addressed this bottleneck from two largely separate directions: accelerating cross-encoder inference by sparsifying the attention process or improving first-stage retrieval effectiveness using more complex models, e.g. late-interaction ones.
+> In this work, we propose to bridge these two approaches, based on an in-depth understanding of the internal mechanisms of cross-encoders. Starting from cross-encoders, we show that it is possible to derive a new late-interaction-like architecture by carefully removing detrimental or unnecessary interactions. We name this architecture MICE (Minimal Interaction Cross-Encoders). We extensively evaluate MICE across both in-domain (ID) and out-of-domain (OOD) datasets.
+> MICE decreases fourfold the inference latency compared to standard cross-encoders, matching late-interaction models like ColBERT while retaining most of cross-encoder ID effectiveness and demonstrating superior generalization abilities in OOD.
+
+Even without pre-computing document states, MICE consistently pushes the Pareto efficiency–effectiveness frontier beyond traditional cross-encoders.
+
+| Pareto Front FLOPs (EMNLP 2026) | MICE-P - Practical application using PLAID [ettin-reranker-data](https://huggingface.co/datasets/cross-encoder/ettin-reranker-v1-data) |
+| :---: | :---: |
+| <img src="Assets/Pareto_front.png" alt="Pareto Front FLOPs (EMNLP 2026)" width="500"/> | <img src="Assets/ParetoMiceP.png" alt="Practical application with ettin-reranker-data" width="550"/> |
+
+We also applied the [ettin-reranker training recipte](https://huggingface.co/blog/ettin-reranker) to MICE, allowing to compare with the recently released [LateOn](https://huggingface.co/lightonai/LateOn) ColBERT model (trained on roughly the same data). We also used [Fast-PLAID](https://github.com/lightonai/fast-plaid) to index and store the multi-vector representations produced by Mice - calling the full Pipeline MICE-P.
+
+To make document pre-computation practical, MICE-P introduces a 128-d projection bottleneck paired with PLAID ([Santhanam et al.](https://dl.acm.org/doi/10.1145/3511808.3557325)) residual compression. Candidate passages are retrieved via a fast first stage (SPLADEv3), decompressed, and scored via MICE interaction layers—preserving fine-grained cross-attention without full query-doc cross-encoding!
+
+The results redefine the Pareto frontier: Trained on Ettin backbones, MICE matches full CE quality while using only ~60% of their FLOPs. When pre-computing & indexing scores with PLAID, MICE-P hits an entirely new Pareto region.
+
 
 ---
+
+## 🧩 Architecture: How MICE Works
+
+Traditional Cross-Encoders concatenate query and document tokens from layer 0, causing quadratic attention costs $O((|q| + |d|)^2)$ across all $L$ layers.
+
+MICE splits transformer layers into two functional phases:
+1. **Bottom Contextualization Layers ($l_X$)**:
+   Queries and documents are processed independently through isolated self-attention blocks. Document representations can be pre-computed offline and indexed.
+2. **Top Interaction Layers ($l_Y$)**:
+   Only the top $Y$ layers perform cross-attention between queries and documents (with optional asymmetric attention biasing and CLS token routing).
+
+
+<div align="center">
+   <img src="Assets/MICE.png" alt="MICE Architecture" width="650"/>
+</div>
+
+---
+
 
 ## 👨‍💻 Package Overview
 
-This repository provides a standardized and fully modular framework for fine-tuning, evaluating, and reproducing state-of-the-art Cross-Encoder models for Information Retrieval (IR).
-Built upon the [Experimaestro](https://github.com/experimaestro/experimaestro-python) and [xpmir](https://github.com/experimaestro/experimaestro-ir) ecosystems, it automates the end-to-end experimental lifecycle:
-- Document indexing and first-stage retrieval (BM25, SPLADE, ColBERT / PLAID).
-- Advanced supervised training and knowledge distillation strategies.
-- Rigorous, distributed multi-benchmark evaluation (TREC-DL, BEIR, LoTTE, Robust04, NanoBEIR, LIMIT).
-- Pretrained models released on Hugging Face: [`xpmir/reproducing-cross-encoders`](https://huggingface.co/collections/xpmir/reproducing-cross-encoders).
-- Interactive demo on Hugging Face Spaces: [Cross-Encoder Reranker Demo](https://huggingface.co/spaces/hugging-apps/cross-encoder-reranker-demo).
+> [!NOTE]
+> **Fork Notice**: This repository is the official implementation of **MICE**, built as a specialized fork and extension of [`xpmir/cross-encoders`](https://github.com/xpmir/cross-encoders). It inherits the complete modular training and evaluation framework while adding MICE minimal-interaction architectures, attention bias mechanisms, and PLAID token caching.
 
-### 🌐 Interactive Pipeline & Experimaestro Guide
+Built upon the [Experimaestro](https://github.com/experimaestro/experimaestro-python) and [xpmir](https://github.com/experimaestro/experimaestro-ir) ecosystems, this repository provides:
+- **MICE Architecture**: Decoupled query and document contextualization in bottom layers ($l_X$), followed by cross-attention interaction only in top layers ($l_Y$).
+- **Attention Bias & Masking**: Lexical and structural attention biasing to eliminate unnecessary cross-attention operations without accuracy drop.
+- **Document State Pre-computation & PLAID**: Offline indexing of document contextualized tokens via PLAID, enabling ColBERT-like retrieval speeds with Cross-Encoder scoring power.
+- **Complete Paper Reproducibility**: End-to-end experiment pipelines for EMNLP 2026 (`experiments/emnlp26`) and MICE-P (`experiments/micep`).
 
-Explore how Experimaestro orchestrates cross-encoder training, candidate caching, and multi-benchmark evaluation in an interactive DAG viewer:
-👉 **[Interactive Pipeline & Experimaestro Guide](https://xpmir.github.io/cross-encoders/)**
-
-### 🎮 Interactive Demo
-
-Try out the models directly in your browser! The Hugging Face team built an interactive demo showcasing our cross-encoder rerankers:
-👉 **[Hugging Face Cross-Encoder Reranker Demo](https://huggingface.co/spaces/hugging-apps/cross-encoder-reranker-demo)**
-
----
-
-## 🎯 Implemented Training Strategies
-
-This framework implements a wide spectrum of objective functions and negative sampling schemes across multiple backbone families:
-
-### 1. Distillation Objectives
-- **MarginMSE** ([Hofstätter et al. 2020](https://www.semanticscholar.org/paper/Improving-Efficient-Neural-Ranking-Models-with-Hofst%C3%A4tter-Althammer/102f40abbd5f64a0f7c341ceaf8af4fb536e35f8)): Pairwise margin distillation matching teacher score differences $\Delta s = s(q, d^+) - s(q, d^-)$ between positive and negative documents from a cross-encoder teacher ensemble.
-- **DistillRankNET** ([Schlatt et al. 2025](http://arxiv.org/abs/2405.07920)): Pairwise distillation targeting soft probability distributions over pair preferences induced by LLM / teacher scores.
-- **ADR-MSE (Approximate Distributional Ranking MSE)** ([Schlatt et al. 2025](http://arxiv.org/abs/2405.07920)): Listwise distillation matching the Plackett-Luce distribution over top-$k$ candidates with teacher predictions.
-- **Pointwise MSE & Pearson Correlation**: Distillation against dense teacher scores (e.g. `cross-encoder/ettin-reranker-v1-data` with Mixedbread-large, used to train [the ettin reranker family](https://huggingface.co/blog/ettin-reranker)) using pointwise squared error or batch Pearson correlation loss ($1 - r$).
-
-### 2. Supervised & Contrastive Objectives
-- **InfoNCE (with In-Batch Negatives)**: Contrastive listwise ranking objective maximizing the likelihood of positive documents against in-batch negatives ([Schlatt et al. 2025](http://arxiv.org/abs/2405.07920)).
-- **InfoNCE with Hard Negatives**: InfoNCE formulated over mined hard negatives, including ColBERTv2 hard negatives (`infoNCE_Colbertv2Neg`) and RankDistiLLM top-50 pool negatives (`infoNCE_RankDistiLLM`).
-- **Binary Cross-Entropy (BCE)**: Classic pointwise classification loss on positive vs. hard-negative pairs (with optional ColBERTv2 negatives).
-- **Hinge Loss**: Margin-based ranking loss enforcing a minimum margin between positive and negative documents.
-
----
 
 ## ⚡ Experimaestro: Caching, Launchers & Parallelism
 
-Experiments in this repository are orchestrated by **[Experimaestro](https://github.com/experimaestro/experimaestro-python)**, which provides unique advantages for compute efficiency and scale:
+Experiments in this repository are orchestrated by **[Experimaestro](https://github.com/experimaestro/experimaestro-python)**:
 
-### 1. First-Stage Result Caching (Save Compute Across Runs)
-First-stage candidate generation (e.g., BM25 indexing, SPLADE-v3 top-1000 retrieval, or ColBERT/PLAID indexation) is computationally expensive.
-Experimaestro tracks task dependencies using content-addressable identifiers:
-- First-stage runs are computed **once** and cached in the workspace.
-- All subsequent training experiments, loss comparisons, and evaluations automatically **reuse the exact same cached candidate runs**.
-- Switching loss functions, batch sizes, or backbones does not trigger re-indexing or re-retrieval, saving hundreds of GPU and CPU hours.
+1. **First-Stage Result Caching**: First-stage candidate runs (BM25, SPLADE, or PLAID) are generated once and content-addressably cached, reusing cached runs across models and ablations.
+2. **Heterogeneous Launchers**: Resource specifications automatically route short tasks (validation, indexing) and heavy training jobs (multi-GPU cluster partitions) based on local or SLURM configurations in `~/.config/experimaestro/launchers.py`.
+3. **Automated Parallel Benchmarks**: Multi-benchmark evaluations (TREC-DL, BEIR-13, LoTTE, Robust04) are dispatched in parallel as soon as learner checkpoints finish.
 
-### 2. Heterogeneous Launchers: Short vs. Long / Multi-GPU
-Each stage of the pipeline defines its own resource requirements, enabling fine-grained dispatch to different hardware:
-- **Lightweight / Short Tasks** (data prep, validation topic evaluation, DAG inspection): Dispatched to fast queues or single GPUs (`duration=2h & gpu(mem=16G)`).
-- **Heavy Training Runs** (large backbones, 80M sample training): Dispatched to multi-GPU nodes or high-memory cluster partitions (`duration=24h & cpu(cores=16) & cuda(mem=80G, gpus=4)`).
-- **Indexation & Negative Mining**: Dispatched to high-core CPU or specialized memory tiers.
+> 🔍 **Interactive Visualization**: Explore how Experimaestro structures experimental pipelines on the **[Interactive Showcase & Guide](https://xpmir.github.io/cross-encoders/)**.
 
-Experimaestro automatically matches each requirement to your configured local or SLURM environments (via `~/.config/experimaestro/launchers.py`).
-
-### 3. Massive Parallel Benchmark Evaluation
-In Experimaestro, every benchmark evaluation is an independent task in the dependency DAG:
-When you enable multiple evaluation benchmarks in a configuration:
-```yaml
-evaluation:
-    in_domain: true     # MS MARCO dev, TREC DL 19, TREC DL 20
-    beir13: true        # 13 out-of-domain BEIR datasets
-    lotte_search: true  # 5 LoTTE search domains
-    robust04: true      # Robust04
-```
-Experimaestro automatically schedules and launches the evaluation of all benchmark datasets **in parallel** across available GPUs/cluster nodes at the very moment the Learner finishes !
-
-> 🔍 **Interactive Visualization**: Explore the full experimental DAG with hover tooltips and all 74 configuration nodes on our **[Interactive Showcase & Guide](https://xpmir.github.io/cross-encoders/)**.
-
----
 
 ## 📦 Installation
 
@@ -113,21 +92,22 @@ This repository uses [`uv`](https://docs.astral.sh/uv/) for fast, deterministic 
 
 1. **Clone the repository:**
    ```bash
-   git clone https://github.com/xpmir/cross-encoders.git
-   cd cross-encoders
+   git clone https://github.com/xpmir/mice.git
+   cd mice
    ```
 
 2. **Synchronize dependencies:**
-   For training and cluster execution (runtime dependencies only):
+   For training and evaluation (runtime dependencies only):
    ```bash
    uv sync
    ```
-   To also include development and testing tools (`pytest`, `ruff`, `mypy`):
+   To also include testing and development tools (`pytest`, `ruff`, `mypy`):
    ```bash
    uv sync --group dev
    ```
 
-3. **(Optional) Flash-Attention 2** for accelerated attention and unpadded sequence processing is highly recommended for training with longer sequences (e.g ettin-reranker-data with `MSE_mixedbread_large` strategy). You can install it manually or use the HF kernel:
+3. **(Optional) Flash-Attention 2:**
+   For accelerated attention kernels during training:
    ```bash
    uvx hf download kernels-community/flash-attn2
    ```
@@ -136,37 +116,64 @@ This repository uses [`uv`](https://docs.astral.sh/uv/) for fast, deterministic 
 
 ## 🔬 Reproducing Paper Experiments
 
-The YAML configurations in `experiments/repro_paper/` cover all model backbones and distillation objectives:
+Experiment YAML configurations are organized in `experiments/`:
+
+### 1. EMNLP 2026 Experiments (`experiments/emnlp26/`)
 
 | Configuration | Description |
 |---|---|
-| [`debug/core_mini_debug.yaml`](experiments/repro_paper/debug/core_mini_debug.yaml) | MiniLM debug configuration with limited query sets for fast local checks |
-| [`core_mini.yaml`](experiments/repro_paper/core_mini.yaml) | MiniLM & small backbones (17M, 32M, 68M) across 6 loss functions |
-| [`core_base_paper.yaml`](experiments/repro_paper/core_base_paper.yaml) | Base models (BERT, RoBERTa, ELECTRA, DeBERTa-v3, Ettin-150M) |
-| [`core_base_deberta.yaml`](experiments/repro_paper/core_base_deberta.yaml) | DeBERTa-v3 base model training |
-| [`core_base_ettin.yaml`](experiments/repro_paper/core_base_ettin.yaml) | Ettin base backbone experiments |
-| [`core_large.yaml`](experiments/repro_paper/core_large.yaml) | Large backbones and scaling experiments |
-| [`reproduction_rank_distiLLM.yaml`](experiments/repro_paper/reproduction_rank_distiLLM.yaml) | Direct reproduction of Rank-DistiLLM training |
-| [`Negatives/colbertNeg_base.yaml`](experiments/repro_paper/Negatives/colbertNeg_base.yaml) | Base models trained with ColBERTv2 hard negative mining |
-| [`Negatives/RankDistiLLMNeg_base.yaml`](experiments/repro_paper/Negatives/RankDistiLLMNeg_base.yaml) | Base models trained with RankDistiLLM negative pools |
+| [`mice_MiniLM_l8+3_bias.yaml`](experiments/emnlp26/mice_MiniLM_l8+3_bias.yaml) | MiniLM-L12 backbone with $l_X=8$ contextualization and $l_Y=3$ interaction layers with attention bias |
+| [`mice_MiniLM_l4.yaml`](experiments/emnlp26/mice_MiniLM_l4.yaml) | MiniLM-L6 backbone MICE training baseline |
+| [`mice_ettin_68m_bias.yaml`](experiments/emnlp26/mice_ettin_68m_bias.yaml) | ModernBERT / Ettin-68M backbone MICE model |
+| [`mice_ettin_150m_bias.yaml`](experiments/emnlp26/mice_ettin_150m_bias.yaml) | Ettin-150M backbone MICE model |
+| [`mice_electra_bias.yaml`](experiments/emnlp26/mice_electra_bias.yaml) | ELECTRA-base backbone with attention bias |
+| [`ablations/mice_MiniLM_l4_bias.yaml`](experiments/emnlp26/ablations/mice_MiniLM_l4_bias.yaml) | Ablation study on attention bias impact |
+| [`ablations/mice_MiniLM_l8_clstodoc.yaml`](experiments/emnlp26/ablations/mice_MiniLM_l8_clstodoc.yaml) | Ablation on CLS-to-document attention routing |
+| [`Mice-lX+Y/`](experiments/emnlp26/Mice-lX+Y/) | Layer distribution search: varying $l_X$ contextualization with fixed interaction |
+| [`Mice-lY+X/`](experiments/emnlp26/Mice-lY+X/) | Layer distribution search: varying $l_Y$ interaction layers |
+| [`baselines/`](experiments/emnlp26/baselines/) | PreTTR, ColBERT, and standard Cross-Encoder comparative baselines |
+
+### 2. MICE-P Experiments (`experiments/micep/`)
+
+| Configuration | Description |
+|---|---|
+| [`micev2_ettin_68m_l10+4_btnk_plaid.yaml`](experiments/micep/micev2_ettin_68m_l10+4_btnk_plaid.yaml) | Ettin-68M MICE with bottleneck token compression and PLAID indexing |
+| [`micev2_ettin_150m_l12+4_btnk_128.yaml`](experiments/micep/micev2_ettin_150m_l12+4_btnk_128.yaml) | Ettin-150M MICE with 128-dim bottleneck compression |
+| [`evals/mice_plaid_32_512.yaml`](experiments/micep/evals/mice_plaid_32_512.yaml) | MICE-PLAID end-to-end evaluation pipeline |
+| [`evals/scorers_latency.yaml`](experiments/micep/evals/scorers_latency.yaml) | Latency benchmarking suite across scorers |
+| [`evals/scorers_plaid_nbits.yaml`](experiments/micep/evals/scorers_plaid_nbits.yaml) | PLAID quantization bit-width sensitivity analysis |
 
 ### Validating with a Dry Run
-To inspect the tasks and execution DAG without submitting jobs :
+To inspect the tasks and execution DAG without launching jobs:
 ```bash
-uv run experimaestro run experiments/repro_paper/debug/core_mini_debug.yaml --run-mode DRY_RUN
+uv run experimaestro run experiments/emnlp26/mice_MiniLM_l8+3_bias.yaml --run-mode DRY_RUN
 ```
 
 ### Launching Experiments
-To launch an experiment (local execution or automated SLURM dispatch depending on your launchers):
+To execute an experiment (local execution or automatic SLURM submission):
 ```bash
-uv run experimaestro run experiments/repro_paper/core_base_paper.yaml
+uv run experimaestro run experiments/emnlp26/mice_MiniLM_l8+3_bias.yaml
 ```
 
 ---
 
 ## 📑 Citation
 
-If you find this work or codebase useful, please cite:
+If you find MICE or this codebase useful, please cite our paper:
+
+```bibtex
+@misc{vast2026miceminimalinteractioncrossencoders,
+      title={MICE: Minimal Interaction Cross-Encoders for efficient Re-ranking},
+      author={Mathias Vast and Victor Morand and Josiane Mothe and Benjamin Piwowarski},
+      year={2026},
+      eprint={2602.16299},
+      archivePrefix={arXiv},
+      primaryClass={cs.IR},
+      url={https://arxiv.org/abs/2602.16299},
+}
+```
+
+If you use the underlying cross-encoder training and distillation framework, please also cite:
 
 ```bibtex
 @misc{morand2026reproducingcomparingdistillationtechniques,
