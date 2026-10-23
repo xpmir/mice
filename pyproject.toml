@@ -3,9 +3,9 @@ requires = ["setuptools>=61.0", "setuptools-scm>=8.0"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "cross-encoders"
+name = "mice"
 dynamic = ["version"]
-description = "Training and Evaluating IR Scorers with experimaestro"
+description = "MICE: Minimal Interaction Cross-Encoders for Efficient Re-ranking"
 readme = "README.md"
 requires-python = ">=3.12,<3.14"
 dependencies = [
