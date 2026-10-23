@@ -29,6 +29,19 @@ backbone_names = {
     "microsoft/deberta-v3-base": "DeBERTav3 (184M)",
 }
 
+# condensed version for mice figure
+backbone_names_mice = {
+    "microsoft/MiniLM-L12-H384-uncased": "MiniLM",
+    "bert-base-uncased": "BERT",
+    "google/electra-base-discriminator": "ELECTRA",
+    "microsoft/deberta-v3-base": "DeBERTav3",
+    "FacebookAI/roberta-base": "RoBERTa (125M)",
+    # Ettin
+    "jhu-clsp/ettin-encoder-17m": "Ettin17",
+    "jhu-clsp/ettin-encoder-32m": "Ettin32",
+    "jhu-clsp/ettin-encoder-68m": "Ettin68",
+    "jhu-clsp/ettin-encoder-150m": "Ettin150",
+}
 
 backbone_names_lower = {
     "jhu-clsp/ettin-encoder-17m": "ettin-17m",

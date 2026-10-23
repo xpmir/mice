@@ -1,0 +1,36 @@
+id: eval_scorer_from_experiment
+title: cross_scorer_evaluation_from_experiment
+description: Re-evaluate MICE v2 models from HF Hub or trained experiment with varying context and pruning thresholds
+
+module: Evaluation.experiment
+pre_experiment: pre_experiment
+
+gpu: true
+
+# Source model: HuggingFace Hub repo or Experimaestro experiment ID
+from_experiment: VictorMorand/MiceV2-l10p4-ettin-68m
+scorer_type: miceV2
+
+# Context overrides
+max_query_length: 32
+max_doc_length: 256
+
+
+preprocessing:
+  requirements: duration=1h & cpu(cores=16, mem=10G) & cuda(mem=10G)
+
+indexation:
+  requirements: duration=8h & cpu(cores=4, mem=10G) & cuda(mem=30G)
+  sparse2bmp_requirements: duration=8h & cpu(cores=8)
+  batch_size: 256
+
+retrieval:
+  requirements: duration=10h & cpu(cores=4, mem=10G) & cuda(mem=20G)
+  batch_size: 128
+  k: 100
+
+evaluation:
+  test_max_topics: 50
+  all_datasets: false
+  datasets:
+    - nfcorpus

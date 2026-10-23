@@ -62,6 +62,7 @@ from retrievers import (
     splade_retriever,
     bm25_retriever,
     plaid_retriever,
+    MicePlaidRetrieverFactory,
 )
 from index_utils import sync_index_size_metrics
 from latency_utils import sync_latency_metrics
@@ -72,6 +73,10 @@ from training_utils import (
     parse_experiment_ref,
     sync_eval_sparsity_metrics,
     find_candidate_experiment_dirs,
+)
+from MICE.modeling.mice_v2.modernbert_xpm import (
+    ModernBertMiceScorer,
+    InitEvalSparsityHook,
 )
 
 import logging
@@ -91,7 +96,7 @@ class BaselinesConfig(NeuralIRExperiment):
     """Identifier for the scorer model: Hugging Face model ID, ST model ID, local folder, or experiment ID."""
 
     scorer_type: GridSearch[str] = ScorerType.stCrossEncoder.value
-    """Type of scorer model: stCrossEncoder, hfCrossScorer, stMultiVectorEncoder, or from_experiment."""
+    """Type of scorer model: stCrossEncoder, hfCrossScorer, stMultiVectorEncoder, miceV2, or from_experiment."""
 
     from_experiment: GridSearch[Optional[str]] = None
     """Optional experiment ID (e.g. 'exp_id' or 'exp_id/run_id' to pin a specific run), local model directory path, or HF Hub model ID to load a trained model."""
@@ -120,6 +125,15 @@ class BaselinesConfig(NeuralIRExperiment):
     doc_prompt: GridSearch[Optional[str]] = None
     """Optional document prompt template or prefix (e.g. '[D] ' or 'passage: ')."""
 
+    hard_pruning: GridSearch[Optional[bool]] = None
+    """Whether to enforce hard token pruning for MICE models during evaluation."""
+
+    hard_prune_threshold: GridSearch[Optional[float]] = None
+    """Utility threshold below which tokens are hard-pruned for MICE models."""
+
+    eval_sparsity: bool = False
+    """Whether to compute token sparsity and retention ratio during evaluation benchmarks."""
+
     get_latency: GridSearch[bool] = False
     """Whether to extract evaluation query latency from task logs and sync into aggregated.txt"""
 
@@ -138,6 +152,9 @@ class BaselinesConfig(NeuralIRExperiment):
 
     seismic: SeismicConfiguration = Factory(SeismicConfiguration)
     """Configuration for Seismic approximate search on SPLADE index."""
+
+    compare_with_baseline: bool = False
+    """If True and use_plaid=True with MICE, also evaluates standard reranking without PLAID."""
 
     plaid: PlaidConfiguration = Factory(PlaidConfiguration)
     """Configuration for PLAID indexing and retrieval."""
@@ -160,7 +177,7 @@ def build_first_stage_retrievers(
     """Instantiate the first-stage candidate retriever (SPLADE or BM25).
 
     PLAID is never built here; PLAID is an indexing/retrieval engine for multi-vector
-    scorers (ColBERT).
+    scorers (ColBERT) or token storage for MICE rerankers.
     """
     retriever_name = (cfg.retriever or "").strip()
     if retriever_name and retriever_name.lower() != "bm25":
@@ -221,6 +238,7 @@ def resolve_evaluation_scorer(
 
     scorer = clone(source_model)
 
+    is_mice_v2 = isinstance(scorer, ModernBertMiceScorer)
     is_st_mv = isinstance(scorer, STMultiVectorEncoder)
     is_st_ce = isinstance(scorer, STCrossEncoder)
 
@@ -264,19 +282,40 @@ def resolve_evaluation_scorer(
         elif hasattr(scorer, "attn_implementation"):
             scorer.attn_implementation = cfg.pref_attn_implementation
 
+    # MICE v2 pruning overrides
+    if is_mice_v2:
+        if cfg.hard_pruning is not None:
+            scorer.hard_pruning = cfg.hard_pruning
+        elif cfg.hard_prune_threshold is not None:
+            scorer.hard_pruning = True
+        if cfg.hard_prune_threshold is not None:
+            scorer.hard_prune_threshold = cfg.hard_prune_threshold
+
     # Build independent loader
     model_loader = scorer.loader_config(
         loader.path, settings=getattr(loader, "settings", None)
     )
     init_tasks = [stop_tags(model_loader)]
 
+    if cfg.eval_sparsity and is_mice_v2:
+        init_tasks.append(
+            InitEvalSparsityHook.C(
+                scorer=scorer,
+                threshold=getattr(scorer, "hard_prune_threshold", 0.5),
+            )
+        )
+
     resolved_type_str = (
-        ScorerType.stMultiVectorEncoder.value
-        if is_st_mv
+        "mice_v2"
+        if is_mice_v2
         else (
-            ScorerType.stCrossEncoder.value
-            if is_st_ce
-            else ScorerType.hfCrossScorer.value
+            ScorerType.stMultiVectorEncoder.value
+            if is_st_mv
+            else (
+                ScorerType.stCrossEncoder.value
+                if is_st_ce
+                else ScorerType.hfCrossScorer.value
+            )
         )
     )
     return scorer, init_tasks, model_loader, resolved_type_str
@@ -367,14 +406,17 @@ def evaluate_scorer(
 ):
     """Evaluates a single scorer configuration.
 
-    Supports three execution branches:
+    Supports four execution branches:
     1. ColBERT + PLAID (use_plaid=True):
        Evaluated directly as an end-to-end multi-vector retriever with PLAID indexing.
        No first-stage candidate retrieval needed.
     2. ColBERT without PLAID (use_plaid=False):
        Evaluated as a second-stage reranker over candidate runs from first_stage_factories.
        Logs a loud warning recommending PLAID multi-vector retrieval.
-    3. Standard Two-Stage Reranking (Cross-Encoders):
+    3. MICE + PLAID (use_plaid=True):
+       Uses first-stage candidates (SPLADE or BM25) and builds a PLAID index for token storage
+       at the specified n_bits. If compare_with_baseline=True, also evaluates standard reranking.
+    4. Standard Reranking (use_plaid=False, Cross-Encoders or MICE):
        Full-text cross-encoder reranking over first-stage candidate runs.
     """
     target_id = ""
@@ -392,7 +434,7 @@ def evaluate_scorer(
         )
 
     scorer_type_enum = ScorerType.from_string(cfg.scorer_type)
-    if scorer_type_enum == ScorerType.from_experiment:
+    if scorer_type_enum in (ScorerType.from_experiment, ScorerType.miceV2):
         is_from_exp = True
     elif scorer_type_enum == ScorerType.auto:
         exp_id, _ = parse_experiment_ref(target_id)
@@ -403,7 +445,10 @@ def evaluate_scorer(
             is_from_exp = True
 
     model_loader = None
-    if is_from_exp or scorer_type_enum == ScorerType.from_experiment:
+    if is_from_exp or scorer_type_enum in (
+        ScorerType.miceV2,
+        ScorerType.from_experiment,
+    ):
         scorer, ce_init_tasks, model_loader, resolved_type_str = (
             resolve_evaluation_scorer(target_id, cfg, cfg_tags=cfg_tags)
         )
@@ -514,6 +559,7 @@ def evaluate_scorer(
 
     is_plaid = bool(cfg.use_plaid)
     is_colbert = resolved_type_str == ScorerType.stMultiVectorEncoder.value
+    is_mice = resolved_type_str == "mice_v2"
 
     tag_scorer(
         scorer,
@@ -603,7 +649,111 @@ def evaluate_scorer(
             continue
 
         # ---------------------------------------------------------------------
-        # Branch 3: Standard Two-Stage Reranking (Cross-Encoders)
+        # Branch 3: MICE + PLAID (Token Storage Indexing & Candidate Reranking)
+        # First-stage retriever provides candidates (SPLADE or BM25).
+        # PLAID is used as token storage for MICE embeddings (at n_bits).
+        # ---------------------------------------------------------------------
+        if is_plaid and is_mice:
+            # Baseline evaluation without PLAID (if requested)
+            if cfg.compare_with_baseline:
+                logging.info(
+                    f"Scheduling baseline 2-stage evaluation: first_stage={retriever_name}, "
+                    f"scorer={target_id} ({resolved_type_str})"
+                )
+                two_stage_retriever_factory = partial(
+                    two_stage_reranker,
+                    batch_size=cfg.retrieval.batch_size,
+                    chunk_size=getattr(cfg.retrieval, "chunk_size", None),
+                    scorer=scorer,
+                    retrievers=run_retriever_factory,
+                )
+                tests.evaluate_retriever(
+                    two_stage_retriever_factory,
+                    launcher=launcher_evaluate,
+                    init_tasks=eval_init_tasks,
+                    fabric_config=fabric_config,
+                    with_run=cfg.save_runs,
+                )
+
+            logging.info(
+                f"Scheduling MICE-PLAID evaluation for: {target_id} (n_bits={cfg.plaid.n_bits}) "
+                f"over first_stage={retriever_name}"
+            )
+            mice_plaid_factory = MicePlaidRetrieverFactory(
+                mice_model=scorer,
+                first_stage_factory=run_retriever_factory,
+                topk=cfg.retrieval.k,
+                batchsize=cfg.retrieval.batch_size,
+                n_ivf_probe=cfg.plaid.n_ivf_probe,
+                n_full_scores=cfg.plaid.n_full_scores,
+                max_query_length=cfg.plaid.max_query_length,
+                max_doc_length=cfg.plaid.max_doc_length,
+                chunk_size=getattr(cfg.retrieval, "chunk_size", None),
+            )
+            mice_plaid_factory.build_indexes(
+                evaluations=tests,
+                cfg=cfg.plaid,
+                batch_size=cfg.indexation.batch_size or cfg.retrieval.batch_size,
+                seed=0,
+                launcher_index=launcher_index,
+                init_tasks=ce_init_tasks,
+                long_launcher_index=long_launcher_index,
+                long_evals=getattr(cfg.indexation, "long_evals", None),
+            )
+            tests.evaluate_retriever(
+                retriever=mice_plaid_factory,
+                launcher=launcher_evaluate,
+                init_tasks=eval_init_tasks,
+                fabric_config=fabric_config,
+                with_run=cfg.save_runs,
+            )
+
+            if cfg.plaid.use_colbert_first_stage:
+                logging.info(
+                    f"Scheduling MICE-ColBERT first-stage evaluation for: {target_id}"
+                )
+                colbert_runs = tests.evaluate_retriever(
+                    mice_plaid_factory.colbert_retriever,
+                    launcher=launcher_evaluate,
+                    init_tasks=ce_init_tasks,
+                    with_run=True,
+                    fabric_config=fabric_config,
+                )
+                colbert_run_factory = MultiRunRetrieverFactory.from_results(
+                    "mice-colbert", colbert_runs
+                )
+                mice_colbert_rerank_factory = MicePlaidRetrieverFactory(
+                    mice_model=scorer,
+                    first_stage_factory=colbert_run_factory,
+                    topk=cfg.retrieval.k,
+                    batchsize=cfg.retrieval.batch_size,
+                    n_ivf_probe=cfg.plaid.n_ivf_probe,
+                    n_full_scores=cfg.plaid.n_full_scores,
+                    max_query_length=cfg.plaid.max_query_length,
+                    max_doc_length=cfg.plaid.max_doc_length,
+                    chunk_size=getattr(cfg.retrieval, "chunk_size", None),
+                )
+                mice_colbert_rerank_factory.build_indexes(
+                    evaluations=tests,
+                    cfg=cfg.plaid,
+                    batch_size=cfg.retrieval.batch_size,
+                    seed=0,
+                    launcher_index=launcher_index,
+                    init_tasks=ce_init_tasks,
+                    long_launcher_index=long_launcher_index,
+                    long_evals=cfg.indexation.long_evals,
+                )
+                tests.evaluate_retriever(
+                    retriever=mice_colbert_rerank_factory,
+                    launcher=launcher_evaluate,
+                    init_tasks=ce_init_tasks,
+                    fabric_config=fabric_config,
+                    with_run=cfg.save_runs,
+                )
+            continue
+
+        # ---------------------------------------------------------------------
+        # Branch 4: Standard Two-Stage Reranking (Cross-Encoders or MICE without PLAID)
         # Evaluates full-text cross-encoder reranking over first-stage candidate runs.
         # ---------------------------------------------------------------------
         logging.info(

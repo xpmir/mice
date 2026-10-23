@@ -73,6 +73,7 @@ class ScorerType(str, Enum):
     stCrossEncoder = "stCrossEncoder"
     stMultiVectorEncoder = "stMultiVectorEncoder"
     hfCrossScorer = "hfCrossScorer"
+    miceV2 = "miceV2"
     from_experiment = "from_experiment"
     auto = "auto"
 
@@ -102,6 +103,8 @@ class ScorerType(str, Enum):
             "stmultivector": cls.stMultiVectorEncoder,
             "stmultivectorencoder": cls.stMultiVectorEncoder,
             "colbert": cls.stMultiVectorEncoder,
+            "micev2": cls.miceV2,
+            "mice": cls.miceV2,
             "fromexperiment": cls.from_experiment,
             "experiment": cls.from_experiment,
             "auto": cls.auto,
@@ -209,9 +212,6 @@ class Evaluation:
     lotte_search: bool = False
     """Whether to evaluate on all LOTTE Search datasets"""
 
-    lotte: bool = False
-    """Alias for lotte_search"""
-
     robust04: bool = False
     """Whether to evaluate on Robust04"""
 
@@ -312,12 +312,14 @@ class xpm_torch_Learner:
 @configuration()
 class PlaidConfiguration:
     """
-    Configuration for PLAID indexing and retrieval pipeline.
+    Configuration for PLAID integration in MICE retrieval pipeline.
     """
 
     use_colbert_first_stage: bool = False
     """Whether to additionally evaluate a genuine ColBERT-style first-stage
-    retriever alongside the existing SPLADE/BM25-based baselines. Requires use_plaid=True."""
+    retriever using MICE's own bottom-layer contextualized embeddings
+    (standalone, and reranked by MICE's top interaction layers), alongside
+    the existing SPLADE/BM25-based baselines. Requires use_plaid=True."""
 
     ### Indexation params ###
     # TODO: Remove `dim` once previous runs with hardcoded dim=128 are finished/deprecated
@@ -353,7 +355,9 @@ class PlaidConfiguration:
     """Maximum number of points (documents) per centroid. Controls the creation of new centroids."""
 
     compress_only: bool = False
-    """Whether to build a compress-only index (no IVF search)."""
+    """Whether to build a compress-only index (no IVF search). For MICE models,
+    compress_only is automatically enforced as True in MicePlaidRetrieverFactory
+    unless use_colbert_first_stage is enabled."""
 
     force_cpu_indexing: bool = False
     """When True, forces the use of CPU for indexing even if a GPU is available.

@@ -1240,7 +1240,7 @@ def find_experiment_results_model_dir(experiment_ref: str) -> Path:
     """Finds the exported model directory inside an experiment's results/models path.
 
     Args:
-        experiment_ref: Experiment ID (e.g. 'train_cross_encoder_ettin150'),
+        experiment_ref: Experiment ID (e.g. 'train_mice_ettin32m_l4+4'),
                        optional run-specific ID ('exp_id/run_id'),
                        or direct directory path.
 
@@ -1347,9 +1347,9 @@ def resolve_trained_model_loader(source: str) -> ModuleLoader:
     """Unified resolution of an experiment ID, local path, or Hugging Face Hub repo into a ModuleLoader config.
 
     Args:
-        source: Experiment ID ('train_cross_encoder_ettin150'),
-                pinned run ID ('train_cross_encoder_ettin150/20260924_180227'),
-                local folder path, or HF Hub repo ('xpmir/cross-encoder-ettin-150m-infoNCE').
+        source: Experiment ID ('train_mice_ettin32m_l4+4'),
+                pinned run ID ('train_micev2_ettin68m_l10+4_v3/20260924_180227'),
+                local folder path, or HF Hub repo ('VictorMorand/MiceV2-l10p4-ettin-68m').
 
     Returns:
         ModuleLoader Config whose `.model` attribute is the Model Config.
@@ -1386,7 +1386,7 @@ def validate_and_align_config(
     and a loaded model Experimaestro Config (xpm Config).
 
     Args:
-        xp_config: Dataclass experiment config (xp config, e.g. CE_FineTuning).
+        xp_config: Dataclass experiment config (xp config, e.g. MiceV2_FineTuning).
         xpm_model_config: Experimaestro Config of the loaded model (xpm Config).
         tags: Optional dict of tracking tags to synchronize with the resolved model.
         from_ref: Optional string identifier of the checkpoint source for logging.
