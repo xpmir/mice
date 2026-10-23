@@ -1,0 +1,22 @@
+id: train_mice_ettin68_lX+3
+title: "Mice-MiniLM Training"
+description:
+    Grid search the necessary number of contextualization layers
+    For Mice models with 3 interactions layers
+
+module: MICE.experiments.mice_training
+pre_experiment: pre_experiment
+parent: ../mice_ettin_68m.yaml
+export_trained_models: false
+
+evaluation:
+    all_datasets: false
+    beir13: false
+    in_domain: true
+
+#### Params that are grid searched
+grid_search:
+    n_contextualization_layers:
+        values_range:
+            - 0
+            - 17

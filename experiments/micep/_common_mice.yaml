@@ -1,0 +1,16 @@
+description:
+    This is the base configuration for all Micev2 experiments
+
+module: MICE.experiments.micev2_training
+parent: ./_common.yaml
+
+export_trained_models: false #by default, override to save best model among seeds / configs: ready for HF export
+
+pref_attn_implementation: flash_attention_2
+#common to all Mice v2 experiments, but can be overridden in ablations
+top_layers_doc_ln: true # default false, best is true
+bottom_final_norm: false # default true, best is false
+top_final_norm: false # default false, best false
+normalize_doc_embeds: true # default false, need true for PLAID
+
+max_length: 1024 #This is useless (independent max_query / doc len) but kept for identity with other configs

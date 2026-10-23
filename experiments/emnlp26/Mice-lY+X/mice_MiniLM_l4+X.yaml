@@ -1,0 +1,29 @@
+id: train_mice_miniLM_l4+X
+title: "Mice-MiniLM-l4+X Training"
+description:
+    Studies the impact of the number of interaction layers
+
+module: MICE.experiments.mice_training
+pre_experiment: pre_experiment
+parent: ../mice_MiniLM_l4.yaml
+export_trained_models: false
+
+seed: 12 # To mimick the HF xp
+nb_repetitions: 3
+
+
+base: microsoft/MiniLM-L12-H384-uncased
+n_contextualization_layers: 4
+
+
+evaluation: #default = Minified tests
+    all_datasets: false
+    in_domain: true
+    beir13: false
+
+#### Params that are grid searched
+grid_search:
+    n_interaction_layers:
+        values_range:
+            - 1
+            - 9

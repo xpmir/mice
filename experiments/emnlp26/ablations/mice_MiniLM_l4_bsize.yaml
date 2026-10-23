@@ -1,0 +1,21 @@
+id: train_mice_miniLM_L4_abl_bsize
+title: "Mice-MiniLM Training"
+description:
+    Base Training for MiniLM-based MICE model.
+
+module: MICE.experiments.mice_training
+# pre_experiment: pre_experiment
+parent: ../mice_MiniLM_l4.yaml
+
+
+#### Params that are grid searched
+grid_search:
+
+    mask_cls_to_doc:
+        values_list:
+            - false
+
+    learner.optimization.batch_size:
+        values_list:
+            - 32
+            - 64

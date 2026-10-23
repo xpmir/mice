@@ -1,0 +1,62 @@
+id: train_prettr_miniLM_l4
+title: "PreTTR-MiniLM Training"
+description:
+    Base Training for MiniLM-based PreTTR model.
+
+module: MICE.experiments.baselines.prettr_training
+
+seed: 12
+nb_repetitions: 3
+
+retriever: ""
+
+preprocessing:
+    requirements: duration=8h & cpu(cores=8)
+
+indexation:
+    requirements: duration=8h & cpu(cores=5) & cuda(mem=10G)
+
+validation:
+    # Use 500 topics for validation
+    size: 500
+
+# This set of hyperparameters follows: https://github.com/huggingface/sentence-transformers/blob/9f76b5790fa8f0175ccdc27e41f9ae348f557144/examples/training/ms_marco/train_cross-encoder-v2.py
+learner:
+    optimization:
+        steps_per_epoch: 100
+        batch_size: 32
+        max_epochs: 2000
+        num_warmup_steps: 5000
+        weight_decay: 0.00
+        lr: 7e-6
+        eps: 1.0e-8
+    loss: marginMSE
+    max_grad_norm: 1.0
+    checkpoint_interval: 100
+    validation_interval: 50
+    validation_top_k: 100
+    validation: nanobeir11
+    requirements: duration=12h & cpu(cores=16) & cuda(mem=40G)
+
+retrieval:
+    requirements: duration=20h & cpu(cores=16) & cuda(mem=30G) * 2
+    k: 1000
+    batch_size: 64
+
+evaluation: #default = Minified tests
+    all_datasets: false
+    in_domain: true
+    beir13: true
+
+base: microsoft/MiniLM-L12-H384-uncased
+prettr_max_query_length: 256
+join_layer: 4
+
+
+#### Params that are grid searched
+grid_search:
+    join_layer:
+        values_list:
+            - 0
+            - 4
+            - 8 # 12 layers

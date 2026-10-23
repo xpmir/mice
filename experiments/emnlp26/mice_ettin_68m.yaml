@@ -1,0 +1,18 @@
+id: train_mice_ettin_68m
+title: "Mice-Ettin-68m Training"
+description:
+    Base Training for Ettin-68m-based MICE model.
+
+module: MICE.experiments.mice_training
+parent: ./mice_MiniLM_l4.yaml # same training parameters
+# pre_experiment: pre_experiment
+
+# evaluation: #default = Minified tests
+#     all_datasets: false
+#     in_domain: true
+#     beir13: true
+
+base: jhu-clsp/ettin-encoder-68m
+n_contextualization_layers: 8
+n_interaction_layers: 3
+max_length: 1024

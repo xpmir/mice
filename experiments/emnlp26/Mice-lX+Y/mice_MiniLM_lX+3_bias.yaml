@@ -1,0 +1,26 @@
+id: train_mice_miniLM_lX+3_bias
+title: "Mice-MiniLM Training with Extra Attention Bias"
+description:
+    Grid search the necessary number of contextualization layers
+    For Mice models with 3 interactions layers
+
+module: MICE.experiments.mice_training
+parent: ../mice_MiniLM_l4.yaml
+pre_experiment: pre_experiment
+export_trained_models: false
+
+base: microsoft/MiniLM-L12-H384-uncased
+n_interaction_layers: 3
+extra_attn_bias: true
+
+evaluation:
+    all_datasets: false
+    beir13: false
+    in_domain: true
+
+#### Params that are grid searched
+grid_search:
+    n_contextualization_layers:
+        values_range:
+            - 0
+            - 10 # 9+3 = 12 layers for MiniLM

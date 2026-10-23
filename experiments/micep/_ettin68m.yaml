@@ -1,0 +1,18 @@
+description:
+    This is the base configuration for all experiments in the MICE v2 series.
+parent: ./_common_mice_v3.yaml
+
+# This set of hyperparameters follows https://huggingface.co/blog/ettin-reranker
+learner:
+    optimization:
+        num_warmup_steps: 20000 # Follows the original setup
+        # Values from Ettin Rerankers: https://huggingface.co/blog/ettin-reranker
+        batch_size: 256 #is 256 in ettin-reranker-v1
+        lr: 3e-5
+    requirements: duration=20h & cpu(cores=16, mem=10G) & cuda(mem=50G) * 2
+
+nb_repetitions: 2
+
+base: jhu-clsp/ettin-encoder-68m
+n_contextualization_layers: 10
+n_interaction_layers: 4

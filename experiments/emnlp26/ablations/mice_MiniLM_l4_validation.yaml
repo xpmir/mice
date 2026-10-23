@@ -1,0 +1,23 @@
+id: train_mice_miniLM_abl_val
+title: "Mice-MiniLM Training"
+description:
+    Base Training for MiniLM-based MICE model.
+
+module: MICE.experiments.mice_training
+# pre_experiment: pre_experiment
+parent: ../mice_MiniLM_l4.yaml
+
+seed: 12 # To mimick the HF xp
+nb_repetitions: 2
+
+#### Params that are grid searched
+grid_search:
+
+    base:
+        values_list:
+            - microsoft/MiniLM-L12-H384-uncased
+
+    learner.validation:
+        values_list:
+            - nanobeir
+            - nanobeir11

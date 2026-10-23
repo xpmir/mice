@@ -1,0 +1,21 @@
+id: train_mice_miniLM_l8+3
+title: "Mice-MiniLM Training"
+description:
+    Compare mice using 4 or 8 layers
+
+module: MICE.experiments.mice_training
+parent: ./mice_MiniLM_l4.yaml
+# pre_experiment: pre_experiment
+
+seed: 12 # To mimick the HF xp
+nb_repetitions: 3
+
+
+base: microsoft/MiniLM-L12-H384-uncased
+n_interaction_layers: 3
+n_contextualization_layers: 8
+
+evaluation: #default = Minified tests
+    all_datasets: false
+    in_domain: true
+    beir13: true

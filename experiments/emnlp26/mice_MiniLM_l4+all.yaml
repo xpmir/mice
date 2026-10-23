@@ -1,0 +1,9 @@
+id: train_mice_miniLM_l4+all
+title: "Mice-MiniLM Training"
+description:
+    Mice Training wit all left layers
+
+module: MICE.experiments.mice_training
+parent: ./mice_MiniLM_l4.yaml
+
+n_interaction_layers: 8

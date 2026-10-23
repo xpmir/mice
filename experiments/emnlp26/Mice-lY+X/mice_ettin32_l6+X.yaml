@@ -1,0 +1,26 @@
+id: train_mice_ettin_32m-l6+X
+title: "Mice-MiniLM-l4+X Training"
+description:
+    Studies the impact of the number of interaction layers
+
+module: MICE.experiments.mice_training
+pre_experiment: pre_experiment
+parent: ../mice_MiniLM_l4.yaml # Same training Parameters
+export_trained_models: false
+
+evaluation: #default = Minified tests
+    all_datasets: false
+    in_domain: true
+    beir13: false
+
+# Fixed Mice Parameters
+base: jhu-clsp/ettin-encoder-32m
+n_contextualization_layers: 6
+max_length: 1024
+
+#### Params that are grid searched
+grid_search:
+    n_interaction_layers:
+        values_range:
+            - 1
+            - 5 # Ettin-32m has 10 layers

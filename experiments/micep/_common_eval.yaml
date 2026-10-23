@@ -1,0 +1,56 @@
+description:
+    This is the base configuration for all Micev2 experiments
+
+module: MICE.experiments.micev2_training
+pre_experiment: pre_experiment
+seed: 12
+
+# By default, all MICE v2 experiments will use splade-v3 top100 as first stage for evaluation.
+retriever: "naver/splade-v3-distilbert" #BM25
+
+# Tokenization settings for all models, ensuring fair comparison
+max_length: null #This is useless (independent max_query / doc len) but kept for identity with other configs
+max_query_length: 1024
+max_doc_length: 1024
+pref_attn_implementation: flash_attention_2
+
+retrieval:
+    k: 100
+    batch_size: 64
+    long_evals: #evals that trigger the long_launcher (faster multi-GPU) instead of default_launcher
+        - fever
+        - msmarco
+        - hotpotqa
+        - arguana
+    requirements: duration=4h & cpu(cores=16) & cuda(mem=30G)
+    long_requirements: duration=10h & cpu(cores=16) & cuda(mem=30G) * 2
+
+evaluation: #default = Minified tests
+    all_datasets: false
+    in_domain: true
+    beir13: false
+
+### Compute requirements for various other steps of the experiment.
+preprocessing:
+    # Used for preprocessing the datasets
+    # need many cpus to efficiently shuffle and flatten data from https://huggingface.co/datasets/cross-encoder/ettin-reranker-v1-data
+    requirements: duration=8h & cpu(cores=32, mem=10G)
+
+indexation:
+    # Running Splade to index the collections.
+    batch_size: 128
+    requirements: duration=20h & cpu(cores=16, mem=20G) & cuda(mem=30G) # need H100
+    long_evals: ["fever", "dpbedia", "hotpotqa"]
+    long_requirements: duration=15h & cpu(cores=16, mem=20G) & cuda(mem=50G) # need H100
+
+# PLAID indexing
+
+plaid:
+  max_doc_length: 512
+  max_query_length: 32
+  n_bits: 2 #by default, we choose 4 for MICE
+  kmeans_niters: 4
+  n_ivf_probe: 8
+  buffer_size: 5000
+  fast_plaid_batch_size: 5000
+  n_samples_kmeans: 600

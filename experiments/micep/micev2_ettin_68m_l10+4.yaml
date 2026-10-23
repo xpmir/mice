@@ -1,0 +1,36 @@
+id: train_micev2_ettin68m_l10+4_v3
+title: "Mice-Ettin-68m Training"
+description:
+    Base Training for Ettin-68m-based MICE model.
+
+module: MICE.experiments.micev2_training
+parent: ./_ettin68m.yaml
+nb_repetitions: 2
+export_trained_models: true
+
+base: cross-encoder/ettin-reranker-68m-v1
+query_prompt: "[Q] "
+doc_prompt: "[D] "
+freeze_LN: false #don't change much here, needed for bigger models
+
+#longer Training
+learner:
+    optimization:
+        max_epochs: 6000 # 6k x 256 x 100 =  153M > 143M in dataset
+        re_no_l2_regularization: ['\.bias$', '(?i)norm' ]
+
+
+evaluation: #default = Minified tests
+    eval_checkpoint: "last"
+    all_datasets: false
+    in_domain: true
+    beir13: true
+    beir13_decontaminated: true
+
+# Exceptionally use H100 for eval
+# retrieval:
+#     requirements: duration=1h & cpu(cores=16) & cuda(mem=40G)
+grid_search:
+    learner.optimization.lr:
+                        - 7e-5 # best value for Mice-Ettin-68m (v1)
+                        - 3e-5 # value for ettin rerankers

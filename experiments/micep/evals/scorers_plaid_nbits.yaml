@@ -1,0 +1,50 @@
+id: eval_lateon_plaid_abl_nbits
+title: lateon_plaid_retrieval_evaluation
+description: Evaluate the effect of changing the number of bits in PLAID on retrieval performance for both MICE and LateOn models.
+
+parent: ../_common_eval.yaml
+module: Evaluation.experiment
+pre_experiment: pre_experiment
+
+use_plaid: true
+include_recall_100: true
+pref_attn_implementation: flash_attention_2
+
+max_length: null #This is useless (independent max_query / doc len) but kept for identity with other configs
+max_query_length: 32
+max_doc_length: 512
+
+evaluation:
+  in_domain: false
+  beir13: false
+  datasets:
+    - scidocs_decontaminated
+    - scifact_decontaminated
+    - arguana_decontaminated
+    - nfcorpus_decontaminated
+    - fiqa_decontaminated
+    # - trec_covid
+
+retriever: naver/splade-v3-distilbert
+
+grid_search:
+  config_dicts:
+    - {scorer_type: stMultiVectorEncoder, scorer_id: lightonai/LateOn, plaid.n_bits: 2, use_plaid: false}
+    - {scorer_type: stMultiVectorEncoder, scorer_id: lightonai/LateOn, plaid.n_bits: 2, use_plaid: true}
+    - {scorer_type: stMultiVectorEncoder, scorer_id: lightonai/LateOn, plaid.n_bits: 4, use_plaid: true}
+    - {scorer_type: stMultiVectorEncoder, scorer_id: lightonai/LateOn, plaid.n_bits: 8, use_plaid: true}
+
+    - {scorer_type: miceV2, scorer_id: train_micev2_ettin400m_l12+4_plaid_128_fast, plaid.n_bits: 2, use_plaid: false}
+    - {scorer_type: miceV2, scorer_id: train_micev2_ettin400m_l12+4_plaid_128_fast, plaid.n_bits: 2, use_plaid: true}
+    - {scorer_type: miceV2, scorer_id: train_micev2_ettin400m_l12+4_plaid_128_fast, plaid.n_bits: 4, use_plaid: true}
+    - {scorer_type: miceV2, scorer_id: train_micev2_ettin400m_l12+4_plaid_128_fast, plaid.n_bits: 8, use_plaid: true}
+
+    - {scorer_type: miceV2, scorer_id: train_micev2_ettin150m_l12+4_v3_plaid_128, plaid.n_bits: 2, use_plaid: false}
+    - {scorer_type: miceV2, scorer_id: train_micev2_ettin150m_l12+4_v3_plaid_128, plaid.n_bits: 2, use_plaid: true}
+    - {scorer_type: miceV2, scorer_id: train_micev2_ettin150m_l12+4_v3_plaid_128, plaid.n_bits: 4, use_plaid: true}
+    - {scorer_type: miceV2, scorer_id: train_micev2_ettin150m_l12+4_v3_plaid_128, plaid.n_bits: 8, use_plaid: true}
+
+    - {scorer_type: miceV2, scorer_id: train_micev2_ettin68m_l10+4_v3_plaid_128, plaid.n_bits: 2, use_plaid: false}
+    - {scorer_type: miceV2, scorer_id: train_micev2_ettin68m_l10+4_v3_plaid_128, plaid.n_bits: 2, use_plaid: true}
+    - {scorer_type: miceV2, scorer_id: train_micev2_ettin68m_l10+4_v3_plaid_128, plaid.n_bits: 4, use_plaid: true}
+    - {scorer_type: miceV2, scorer_id: train_micev2_ettin68m_l10+4_v3_plaid_128, plaid.n_bits: 8, use_plaid: true}

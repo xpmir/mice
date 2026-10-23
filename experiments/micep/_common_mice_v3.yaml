@@ -1,0 +1,29 @@
+description:
+    This is the base configuration for all Micev2 experiments
+
+module: MICE.experiments.micev2_training
+parent: ./_common.yaml
+export_trained_models: false #by default, override to save best model among seeds / configs: ready for HF export
+nb_repetitions: 2
+
+#common to all Mice v2 experiments, but can be overridden in ablations
+pref_attn_implementation: flash_attention_2
+top_layers_doc_ln: true # default false, best is true
+bottom_final_norm: false # default true, best is false
+top_final_norm: false # default false, best false
+normalize_doc_embeds: true # default false, need true for PLAID
+freeze_LN: true # freeze Layer Norms to avoid gradient explosions
+
+
+#Add Prompts for assymetry
+query_prompt: "[Q] "
+doc_prompt: "[D] "
+
+
+#longer Training
+learner:
+    optimization:
+        max_epochs: 6000 # 5k x 256 x 100 = 128M < 143M in dataset
+        re_no_l2_regularization: ['\.bias$', '(?i)norm' ]
+
+max_length: 1024 #This is useless (independent max_query / doc len) but kept for identity with other configs

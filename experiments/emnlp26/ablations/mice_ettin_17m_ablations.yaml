@@ -1,0 +1,81 @@
+id: train_mice_ettin_17m
+title: "Mice-Ettin-17m Training"
+description:
+    Base Training for Ettin-17m-based MICE model.
+
+module: MICE.experiments.mice_training
+pre_experiment: pre_experiment
+
+seed: 12 # To mimick the HF xp
+nb_repetitions: 1
+
+
+retriever: ""
+
+preprocessing:
+    requirements: duration=8h & cpu(cores=8)
+
+indexation:
+    requirements: duration=8h & cpu(cores=5) & cuda(mem=10G)
+
+validation:
+    # Use 500 topics for validation
+    size: 500
+
+# This set of hyperparameters follows: https://github.com/huggingface/sentence-transformers/blob/9f76b5790fa8f0175ccdc27e41f9ae348f557144/examples/training/ms_marco/train_cross-encoder-v2.py
+learner:
+    optimization:
+        steps_per_epoch: 100
+        batch_size: 32
+        max_epochs: 2000 # Sum is 2_500_000. Multiplied by BS of 32, it gives 80M samples, which is a bit above the size of the dataset
+        num_warmup_steps: 5000 # Follows the original setup
+        weight_decay: 0.00
+        lr: 7e-6
+        eps: 1.0e-8
+    # sample_max: 2_000_000
+    max_grad_norm: 1.0
+    checkpoint_interval: 100
+    validation_interval: 50
+    validation_top_k: 100
+    validation: nanobeir
+    requirements: duration=12h & cpu(cores=16) & cuda(mem=80G)
+
+retrieval:
+    requirements: duration=20h & cpu(cores=16) & cuda(mem=30G)
+    k: 1000
+    batch_size: 256
+
+evaluation: #default = Minified tests
+    all_datasets: false
+
+
+merge_layer: 3
+drop_layer: 6
+
+
+#### Params that are grid searched
+grid_search:
+
+    base:
+        values_list:
+            - jhu-clsp/ettin-encoder-17m
+
+    learner.optimization.batch_size:
+        values_list:
+            - 32
+            # - 64
+
+    learner.optimization.lr:
+        values_list:
+            # - 1e-6
+            - 7e-6
+
+    learner.loss:
+        values_list:
+            - marginMSE
+            # - infoNCE_Colbertv2Neg
+
+    learner.validation:
+        values_list:
+            - nanobeir
+            - msmarco

@@ -1,0 +1,56 @@
+id: train_mice_electra_l8+3
+title: "Try to train a mice electra with 4 and 8 contextualization layers"
+description:
+    Using the best parameters from the grid search,
+    we run additional trainings validating on nanobeir to see the impact on OOD.
+
+module: MICE.experiments.mice_training
+parent: mice_training_base.yaml
+# pre_experiment: pre_experiment
+
+seed: 12 # To mimick the HF xp
+nb_repetitions: 3
+
+
+preprocessing:
+    requirements: duration=8h & cpu(cores=8)
+
+indexation:
+    requirements: duration=8h & cpu(cores=4) & cuda(mem=20G)
+    batch_size: 128
+
+validation: # Use 500 topics maximum for validation
+    size: 500
+
+# This set of hyperparameters follows: https://github.com/huggingface/sentence-transformers/blob/9f76b5790fa8f0175ccdc27e41f9ae348f557144/examples/training/ms_marco/train_cross-encoder-v2.py
+learner:
+    optimization:
+        steps_per_epoch: 100
+        batch_size: 32
+        max_epochs: 2000 # Sum is 2_500_000. Multiplied by BS of 32, it gives 80M samples, which is a bit above the size of the dataset
+        num_warmup_steps: 20000 # Follows the original setup
+        weight_decay: 0.00
+        lr: 1e-5
+        eps: 1.0e-8 # should maybe try 1e-6
+    # sample_max: 2_000_000
+    max_grad_norm: 1.0
+    checkpoint_interval: 100
+    validation_interval: 50
+    validation_top_k: 100
+    validation: nanobeir
+    requirements: duration=12h & cpu(cores=16) & cuda(mem=40G)
+
+
+retrieval:
+    requirements: duration=20h & cpu(cores=16) & cuda(mem=20G) * 2
+    k: 1000
+    batch_size: 64
+
+evaluation: #default = Minified tests
+    all_datasets: false
+    in_domain: true
+    beir13: true
+
+base: google/electra-base-discriminator
+n_contextualization_layers: 8
+n_interaction_layers: 3

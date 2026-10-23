@@ -1,0 +1,29 @@
+id: eval_mice_32_512_hf
+title: cross_scorer_evaluation
+description: Comparison between MICE HF Scorer and its ST-Loaded Version
+
+parent: ../_common_eval.yaml
+module: Evaluation.experiment
+pre_experiment: pre_experiment
+
+#First stage: splade-v3
+retriever: naver/splade-v3-distilbert
+scorer_type: auto
+
+use_plaid: false
+include_recall_100: true
+max_query_length: null
+max_doc_length: null
+max_length: 1024
+
+evaluation:
+  in_domain: false
+  beir13: false
+  beir13_decontaminated: false
+  lotte_search: true
+
+grid_search:
+  scorer_type: ["miceV2", "stCrossEncoder"]
+  scorer_id:
+  - VictorMorand/Mice-P-130m
+  - VictorMorand/Mice-P-61m

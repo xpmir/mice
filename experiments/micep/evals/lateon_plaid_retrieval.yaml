@@ -1,0 +1,36 @@
+id: eval_lateon_plaid
+title: lateon_plaid_retrieval_evaluation
+description: Evaluation of LateOn multi-vector models with PLAID indexing and retrieval
+
+parent: ../_common_eval.yaml
+module: Evaluation.experiment
+pre_experiment: pre_experiment
+
+
+max_query_length: 32
+max_doc_length: 512
+
+scorer_type: stMultiVectorEncoder
+pref_attn_implementation: flash_attention_2
+scorer_id:
+  - lightonai/LateOn
+  - VictorMorand/Colbert-LateOn-Pearson
+
+use_plaid: true
+include_recall_100: true #only diff with other xp
+
+retrieval:
+  k: 100
+  requirements: duration=4h & cpu(cores=8, mem=16G) & cuda(mem=30G)
+
+indexation:
+  batch_size: 128
+  requirements: duration=18h & cpu(cores=16, mem=20G) & cuda(mem=30G) # need H100
+  long_evals: ["fever", "dpbedia", "hotpotqa", "science"]
+  long_requirements: duration=15h & cpu(cores=16, mem=20G) & cuda(mem=50G) # need H100
+
+evaluation:
+  in_domain: false
+  beir13: false
+  beir13_decontaminated: true
+  lotte_search: true

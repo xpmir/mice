@@ -1,0 +1,32 @@
+description:
+    This is the base configuration for all **training** experiments
+
+module: MICE.experiments.micev2_training
+pre_experiment: pre_experiment
+parent: ./_common_eval.yaml
+seed: 12
+
+# Shared Training hyperparameters for all the Mini Mice Models
+learner:
+    loss: MSE_mixedbread_large
+    optimization:
+        steps_per_epoch: 100
+        max_epochs: 3000 # 3k x 256 x 100 = 77M < 143M in dataset
+        num_warmup_steps: 10000 # Follows the original setup
+        weight_decay: 0.00
+        eps: 1.0e-8
+    fabric:
+        precision: bf16-mixed
+    # sample_max: 2_000_000
+    max_grad_norm: 1.0
+    checkpoint_interval: 100
+    validation_interval: 50
+    validation_top_k: 100
+    validation: nanobeir11
+    requirements: duration=2h & cpu(cores=16) & cuda(mem=80G) # H100
+
+# Subsets of the ettin-reranker-v1-data dataset to exclude (by default empty, using all 39 subsets)
+ettin_subset_exclude: [] # Train on full reranker-v1 data
+
+validation:
+    size: 500 # Use max 500 topics for validation

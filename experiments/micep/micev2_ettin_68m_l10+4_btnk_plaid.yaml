@@ -1,0 +1,31 @@
+id: train_micev2_ettin68m_l10+4_v3_plaid_128
+title: "Retrain a bottleneck Auto-Encoder on top of trained Mice"
+description:
+    This experiments takes a pretrained Mice - Ettin 68 Model, trains a compressed bottleneck on top of it
+    and then evaluate with a Plaid index for storing the muli-vector representations.
+
+module: MICE.experiments.micev2_training
+parent: ./_ettin68m.yaml
+nb_repetitions: 2
+export_trained_models: true
+pre_experiment: ""
+
+from_experiment: train_micev2_ettin68m_l10+4_v3
+doc_bottleneck_dim: 128
+freeze_bottom_layers_phase1: true
+freeze_top_layers: false
+
+learner:
+    optimization:
+        max_epochs: 5000 # 5k x 256 x 100 = 128M < 143M in dataset
+        lr: 7e-5
+
+evaluation: #default = Minified tests
+    eval_checkpoint: best
+    all_datasets: false
+    in_domain: false
+    beir13: false
+    beir13_decontaminated: true
+
+indexation:
+    requirements: duration=4h & cpu(cores=16) & cuda(mem=40G)

@@ -1,0 +1,42 @@
+id: train_micev2_ettin150m_l12+4_v3_plaid_128
+title: "Mice-Ettin-150m Training"
+description:
+    Long Training for Mice-l12+4
+parent: ./_common_mice_v3.yaml
+nb_repetitions: 2
+export_trained_models: true
+pre_experiment: ""
+
+
+from_experiment: train_micev2_ettin150m_l12+4_v3
+doc_bottleneck_dim: 128
+freeze_bottom_layers_phase1: true
+freeze_top_layers: false
+
+# This set of hyperparameters follows https://huggingface.co/blog/ettin-reranker
+learner:
+    optimization:
+        max_epochs: 5000 # 3k x 256 x 100 = 77M < 143M in dataset
+        num_warmup_steps: 20000 # Follows the original setup
+        # Values from Ettin Rerankers: https://huggingface.co/blog/ettin-reranker
+        lr: 1.5e-5
+        batch_size: 256
+    requirements: duration=20h & cpu(cores=16, mem=10G) & cuda(mem=50G) * 4
+
+base: cross-encoder/ettin-reranker-150m-v1
+n_contextualization_layers: 12
+n_interaction_layers: 4
+
+evaluation: #default = Minified tests
+    eval_checkpoint:
+        - last
+        - best
+    all_datasets: false
+    in_domain: false
+    beir13: false
+    beir13_decontaminated: true
+
+grid_search:
+    learner.optimization.lr:
+                        - 1.5e-5 # best value for Mice-Ettin-68m (v1)
+                        - 5e-5 # value for ettin rerankers

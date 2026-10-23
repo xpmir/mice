@@ -1,0 +1,40 @@
+id: eval_scorers_top100_32_512
+title: cross_scorer_evaluation
+description: Evalutation of various HF Scorers
+
+parent: ../_common_eval.yaml
+module: Evaluation.experiment
+pre_experiment: pre_experiment
+
+#First stage: splade-v3
+retriever: naver/splade-v3-distilbert
+
+scorer_type: "stCrossEncoder"
+grid_search:
+  scorer_id:
+    - cross-encoder/ettin-reranker-32m-v1
+    - cross-encoder/ettin-reranker-68m-v1
+    - cross-encoder/ettin-reranker-150m-v1
+    - cross-encoder/ettin-reranker-400m-v1
+    - VictorMorand/cross-encoder-ettin-68m-mxbread
+    #
+    # - /lustre/fsn1/projects/rech/npl/commun/micev2/experiments/baseline_ettin68m_long/20260930_214900/results/models/cross-encoder-ettin-68m
+    # - cross-encoder/ettin-reranker-17m-v1
+    # - Qwen/Qwen3-Reranker-0.6B
+    # - cross-encoder/ms-marco-MiniLM-L12-v2
+    # - mixedbread-ai/mxbai-rerank-base-v2
+    # - xpmir/cross-encoder-MiniLM-L12-infoNCE
+    # - mixedbread-ai/mxbai-rerank-large-v2
+
+pref_attn_implementation: null
+max_len: null
+max_query_length: 32
+max_doc_length: 512
+include_recall_100: false
+
+evaluation:
+  #just for debugging
+  in_domain: false
+  beir13: false
+  beir13_decontaminated: true
+  lotte_search: true

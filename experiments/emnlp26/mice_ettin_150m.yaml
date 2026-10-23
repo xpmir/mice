@@ -1,0 +1,29 @@
+id: train_mice_ettin150-l12+3
+title: "Mice-Ettin-150m Training"
+description:
+    Base Training for Ettin-150m-based MICE model.
+
+module: MICE.experiments.mice_training
+parent: mice_training_base.yaml
+# pre_experiment: pre_experiment
+
+seed: 12 # To mimick the HF xp
+nb_repetitions: 3
+retriever: ""
+
+
+retrieval:
+    requirements: duration=20h & cpu(cores=16) & cuda(mem=30G) * 4
+    k: 1000
+    batch_size: 64
+
+evaluation: #default = Minified tests
+    all_datasets: false
+    in_domain: true
+    beir13: true
+
+base: jhu-clsp/ettin-encoder-150m
+max_length: 1024
+n_contextualization_layers: 12 # 22 layers
+n_interaction_layers: 3
+mask_cls_to_doc: false

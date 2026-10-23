@@ -1,0 +1,34 @@
+id: eval_colbert_plaid
+title: cross_scorer_evaluation
+description: Evaluation of MICE v2 Models
+
+parent: ../_common_eval.yaml
+module: Evaluation.experiment
+pre_experiment: pre_experiment
+
+#First stage: splade-v3
+retriever: naver/splade-v3-distilbert
+
+scorer_type: stMultiVectorEncoder
+
+max_query_length: 32
+max_doc_length: 512
+
+evaluation:
+  #just for debugging
+  in_domain: false
+  beir13: false
+  beir13_decontaminated: true
+  lotte_search: true
+
+use_plaid: true
+
+indexation:
+  requirements: duration=5h & cpu(cores=16, mem=20G) & cuda(mem=40G)
+
+grid_search:
+  scorer_id:
+    - VictorMorand/Colbert-ettin-68m-mxbread-pearson
+    - VictorMorand/Colbert-ettin-150m-mxbread-pearson
+    - VictorMorand/Colbert-ettin-400m-mxbread-pearson
+    # - lightonai/LateOn
