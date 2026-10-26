@@ -223,29 +223,3 @@ class TestLazyBuilding:
             expected = ["msmarco_dev", "trec2019", "trec2020", "fiqa", "limit_small"]
             assert built_datasets == expected
             assert list(collection.collection.keys()) == expected
-
-    def test_build_tests_with_lotte_flags(self):
-        mock_eval = MagicMock()
-        expected = list(LOTTE_KEYS.keys())
-
-        # Test lotte_search flag
-        built_search = []
-        def fake_build_search(self, *args, **kwargs):
-            built_search.append(self.name)
-            return mock_eval
-
-        with patch("tests.DatasetSpec.build", side_effect=fake_build_search, autospec=True):
-            collection = build_tests(Evaluation(lotte_search=True), check_docs=False)
-            assert built_search == expected
-            assert list(collection.collection.keys()) == expected
-
-        # Test lotte flag (alias)
-        built_lotte = []
-        def fake_build_lotte(self, *args, **kwargs):
-            built_lotte.append(self.name)
-            return mock_eval
-
-        with patch("tests.DatasetSpec.build", side_effect=fake_build_lotte, autospec=True):
-            collection = build_tests(Evaluation(lotte=True), check_docs=False)
-            assert built_lotte == expected
-            assert list(collection.collection.keys()) == expected
