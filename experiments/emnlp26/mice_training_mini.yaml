@@ -3,7 +3,7 @@
 # which share the same training hyperparameters.
 
 module: MICE.experiments.mice_training
-# pre_experiment: pre_experiment
+pre_experiment: pre_experiment
 
 seed: 12
 nb_repetitions: 3

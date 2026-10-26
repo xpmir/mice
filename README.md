@@ -19,14 +19,13 @@
 [![Paper (EMNLP 2026)](https://img.shields.io/badge/Paper-EMNLP%202026-red)](https://arxiv.org/abs/2602.16299)
 [![Paper (MICE-P)](https://img.shields.io/badge/Paper-MICE--P%20ArXiv-red)](https://arxiv.org/abs/2610.31932)
 [![Models (Hugging Face)](https://img.shields.io/badge/%F0%9F%A4%97%20Hugging%20Face-Collection-yellow)](https://huggingface.co/collections/xpmir/mice)
-[![GitHub](https://img.shields.io/badge/GitHub-Code-blue)](https://github.com/xpmir/mice)
 [![Fork of](https://img.shields.io/badge/Fork%20of-xpmir%2Fcross--encoders-lightgrey)](https://github.com/xpmir/cross-encoders)
 [![uv](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/astral-sh/uv/main/assets/badge/v0.json)](https://github.com/astral-sh/uv)
 [![Experimaestro](https://img.shields.io/badge/orchestrated%20by-experimaestro-orange)](https://github.com/experimaestro/experimaestro-python)
 
 </div>
 
-### 📄 Abstract (EMNLP 2026)
+### 📄 Abstract ([EMNLP 2026](https://arxiv.org/abs/2602.16299))
 
 > Cross-encoders deliver state-of-the-art ranking effectiveness in information retrieval, but have a high inference cost. This prevents them from being used as first-stage rankers, but also incurs a cost when re-ranking documents. Prior work has addressed this bottleneck from two largely separate directions: accelerating cross-encoder inference by sparsifying the attention process or improving first-stage retrieval effectiveness using more complex models, e.g. late-interaction ones.
 > In this work, we propose to bridge these two approaches, based on an in-depth understanding of the internal mechanisms of cross-encoders. Starting from cross-encoders, we show that it is possible to derive a new late-interaction-like architecture by carefully removing detrimental or unnecessary interactions. We name this architecture MICE (Minimal Interaction Cross-Encoders). We extensively evaluate MICE across both in-domain (ID) and out-of-domain (OOD) datasets.
@@ -34,15 +33,15 @@
 
 Even without pre-computing document states, MICE consistently pushes the Pareto efficiency–effectiveness frontier beyond traditional cross-encoders.
 
-| Pareto Front FLOPs (EMNLP 2026) | MICE-P - Practical application using PLAID [ettin-reranker-data](https://huggingface.co/datasets/cross-encoder/ettin-reranker-v1-data) |
+| Pareto Front FLOPs (EMNLP 2026) | MICE-P - Practical application using [Fast-PLAID](https://github.com/lightonai/fast-plaid) as multi-vector store|
 | :---: | :---: |
 | <img src="Assets/Pareto_front.png" alt="Pareto Front FLOPs (EMNLP 2026)" width="500"/> | <img src="Assets/ParetoMiceP.png" alt="Practical application with ettin-reranker-data" width="550"/> |
 
-### 📄 Abstract: MICE to Meet You — End-to-End Retrieval (arXiv:2610.31932)
+### 📄 Abstract: MICE to Meet You — End-to-End Retrieval ([preprint](https://arxiv.org/abs/2610.31932))
 
 > Late-interaction models offer state-of-the-art efficiency-effectiveness trade-offs for neural retrieval by enabling document representations to be pre-computed and efficiently indexed. Yet, their relatively simple interaction mechanisms, typically MaxSim, can limit their effectiveness compared to cross-encoders. MICE, a recently introduced re-ranking architecture, aims to combine cross-encoder-like effectiveness through expressive transformer-based scoring with reduced inference-time computation through document-side pre-computation. However, no practical way to store these document representations was explored. We address this limitation here and introduce MICE-P, the first end-to-end retrieval pipeline with MICE, based on PLAID to index the contextualized document token representations. We conduct a controlled comparison of MICE, ColBERT and cross-encoders by training comparable models using the Ettin Family under matched experimental conditions. Our results show that MICE-P defines a new class of retrieval architecture with an efficiency-effectiveness trade-off of its own: it matches late-interaction retrieval throughput while retaining the effectiveness of cross-encoders.
 
-We also applied the [ettin-reranker training recipe](https://huggingface.co/blog/ettin-reranker) to MICE, allowing to compare with the recently released [LateOn](https://huggingface.co/lightonai/LateOn) ColBERT model (trained on roughly the same data). We also used [Fast-PLAID](https://github.com/lightonai/fast-plaid) to index and store the multi-vector representations produced by Mice - calling the full Pipeline MICE-P.
+We also applied the [ettin-reranker training recipe](https://huggingface.co/blog/ettin-reranker) to MICE, allowing to compare with the recently released [LateOn](https://huggingface.co/lightonai/LateOn) ColBERT model (trained on roughly the same [data released by the LightOn team](https://huggingface.co/blog/lightonai/denseon-lateon)). We also used [Fast-PLAID](https://github.com/lightonai/fast-plaid) to index and store the multi-vector representations produced by Mice - calling the full Pipeline MICE-P.
 
 To make document pre-computation practical, MICE-P introduces a 128-d projection bottleneck paired with PLAID ([Santhanam et al.](https://dl.acm.org/doi/10.1145/3511808.3557325)) residual compression. Candidate passages are retrieved via a fast first stage (SPLADEv3), decompressed, and scored via MICE interaction layers—preserving fine-grained cross-attention without full query-doc cross-encoding!
 
@@ -78,7 +77,7 @@ All released models can be used directly through the [`sentence-transformers`](h
 from sentence_transformers import CrossEncoder
 
 # Load any released model from the collection
-model = CrossEncoder("xpmir/<model-name>", trust_remote_code=True)
+model = CrossEncoder("xpmir/Mice-P-61m", trust_remote_code=True)
 
 # Predict relevance scores for query-document pairs
 scores = model.predict([
@@ -112,7 +111,9 @@ Experiments in this repository are orchestrated by **[Experimaestro](https://git
 2. **Heterogeneous Launchers**: Resource specifications automatically route short tasks (validation, indexing) and heavy training jobs (multi-GPU cluster partitions) based on local or SLURM configurations in `~/.config/experimaestro/launchers.py`.
 3. **Automated Parallel Benchmarks**: Multi-benchmark evaluations (TREC-DL, BEIR-13, LoTTE, Robust04) are dispatched in parallel as soon as learner checkpoints finish.
 
-> 🔍 **Interactive Visualization**: Explore how Experimaestro structures experimental pipelines on the **[Interactive Showcase & Guide](https://xpmir.github.io/cross-encoders/)**.
+
+> [!NOTE]
+> You can find a more complete explanation of the use of experimaestro for [`xpmir/cross-encoders`](https://github.com/xpmir/cross-encoders) at https://xpmir.github.io/cross-encoders/.
 
 
 ## 📦 Installation

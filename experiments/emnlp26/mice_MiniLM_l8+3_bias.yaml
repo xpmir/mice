@@ -5,7 +5,6 @@ description:
 
 module: MICE.experiments.mice_training
 parent: ./mice_MiniLM_l4.yaml
-# pre_experiment: pre_experiment
 
 seed: 12 # To mimick the HF xp
 nb_repetitions: 3
