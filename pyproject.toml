@@ -34,6 +34,7 @@ package-dir = {"" = "src"}
 
 [tool.setuptools_scm]
 version_file = "src/_version.py"
+fallback_version = "0.1.0"
 
 [tool.mypy]
 plugins = ["experimaestro.mypy"]
