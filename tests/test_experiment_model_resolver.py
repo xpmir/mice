@@ -90,9 +90,6 @@ def test_init_micev2_from_experiment_checkpoint():
         top_layers_doc_ln=source_model.top_layers_doc_ln,
         bottom_final_norm=source_model.bottom_final_norm,
         top_final_norm=source_model.top_final_norm,
-        utility_pred=True,
-        hard_pruning=True,
-        hard_prune_threshold=0.5,
     )
     for task in init_tasks:
         task.instance().execute()
@@ -107,8 +104,6 @@ def test_init_micev2_from_experiment_checkpoint():
 
     scorer = init_task.scorer
     assert scorer._initialized
-    for param in scorer.hf_model.utility_predictor.parameters():
-        assert not param.requires_grad
     for param in scorer.hf_model.model.layers.parameters():
         assert not param.requires_grad
     for param in scorer.hf_model.top_layers.parameters():
@@ -186,10 +181,8 @@ def test_modernbert_mice_scorer_warns_on_override_from_checkpoint(caplog):
         hf_id="VictorMorand/MiceV2-l10p4-ettin-68m",
         n_contextualization_layers=10,
         n_interaction_layers=4,
-        top_layers_doc_ln=True,
-        bottom_final_norm=False,
-        utility_temp=2.0,  # Overriding checkpoint's 1.0
-        hard_prune_threshold=0.3,  # Overriding checkpoint's 0.5
+        bottom_final_norm=True,
+        doc_bottleneck_dim=256,
     )
 
     with caplog.at_level(logging.WARNING):
@@ -197,8 +190,8 @@ def test_modernbert_mice_scorer_warns_on_override_from_checkpoint(caplog):
             task.instance().execute()
 
     assert "[MICE Config Override] Overriding checkpoint parameter" in caplog.text
-    assert "utility_temp" in caplog.text
-    assert "hard_prune_threshold" in caplog.text
+    assert "bottom_final_norm" in caplog.text
+    assert "doc_bottleneck_dim" in caplog.text
 
 
 def test_modernbert_mice_scorer_structural_mismatch_raises(caplog):
@@ -276,7 +269,6 @@ def test_init_micev2_from_checkpoint_with_compression():
         bottom_final_norm=source_model.bottom_final_norm,
         top_final_norm=source_model.top_final_norm,
         compress_dim=1.333333333,
-        utility_pred=True,
     )
 
     # 3. Create InitMICEV2FromCheckpoint task
@@ -334,7 +326,6 @@ def test_init_micev2_from_checkpoint_with_compress_init_random_uncompressed():
         top_final_norm=source_model.top_final_norm,
         compress_dim=1.0,
         compress_init_option="random",
-        utility_pred=True,
     )
 
     init_task = InitMICEV2FromCheckpoint.C(
@@ -401,7 +392,6 @@ def test_init_micev2_from_checkpoint_with_compress_init_seed_uncompressed():
         top_final_norm=source_model.top_final_norm,
         compress_dim=1.0,
         compress_init_option="seed",
-        utility_pred=True,
     )
 
     init_task = InitMICEV2FromCheckpoint.C(
@@ -496,7 +486,6 @@ def test_load_model_preserves_device_and_buffers_on_initialized_model():
         hf_id="hf-internal-testing/tiny-random-ModernBertModel",
         n_contextualization_layers=1,
         n_interaction_layers=1,
-        utility_pred=True,
     )
     scorer = scorer_cfg.instance()
     scorer.initialize()
@@ -585,7 +574,6 @@ def test_init_micev2_from_checkpoint_with_freeze_top_layers():
         compress_dim=1.0,
         compress_init_option="seed",
         doc_bottleneck_dim=256,
-        utility_pred=True,
     )
 
     init_task = InitMICEV2FromCheckpoint.C(

@@ -97,8 +97,7 @@ def test_pack_pair_inputs_padded():
 
 
 @pytest.mark.parametrize("use_cross_attn", [True, False])
-@pytest.mark.parametrize("gate_target", ["h", "v"])
-def test_unified_vs_legacy_parity_query_doc_ids(use_cross_attn, gate_target):
+def test_unified_vs_legacy_parity_query_doc_ids(use_cross_attn):
     """Verify numerical parity to machine epsilon between unified and legacy bottom contextualization."""
     torch.manual_seed(42)
     base_kwargs = dict(
@@ -109,10 +108,7 @@ def test_unified_vs_legacy_parity_query_doc_ids(use_cross_attn, gate_target):
         n_contextualization_layers=2,
         local_attention=4,
         _attn_implementation="sdpa",
-        utility_pred=True,
-        utility_bias=0.0,
         use_cross_attn=use_cross_attn,
-        gate_target=gate_target,
     )
 
     cfg_unified = ModernBertMiceConfig(unified_bottom_pass=True, **base_kwargs)
@@ -150,8 +146,6 @@ def test_unified_vs_legacy_parity_input_ids():
         n_contextualization_layers=2,
         local_attention=4,
         _attn_implementation="sdpa",
-        utility_pred=True,
-        utility_bias=0.0,
     )
 
     cfg_unified = ModernBertMiceConfig(unified_bottom_pass=True, **base_kwargs)
@@ -189,7 +183,6 @@ def test_unified_backward_gradient_flow():
         n_contextualization_layers=2,
         local_attention=4,
         _attn_implementation="sdpa",
-        utility_pred=True,
         unified_bottom_pass=True,
     )
     model = ModernBertMiceForSequenceClassification(config).train()
@@ -210,9 +203,8 @@ def test_unified_backward_gradient_flow():
     loss = out.loss
     loss.backward()
 
-    # Assert gradients exist on embeddings, bottom layers, utility predictor, and top layers
+    # Assert gradients exist on embeddings, bottom layers, and top layers
     assert model.model.embeddings.tok_embeddings.weight.grad is not None
     assert model.model.layers[0].attn.Wqkv.weight.grad is not None
-    assert model.utility_predictor.wi.weight.grad is not None
     assert model.top_layers[0].self_attn.Wqkv.weight.grad is not None
     assert model.output_modules.dense_score.linear.weight.grad is not None

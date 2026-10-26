@@ -1,12 +1,12 @@
 """
-ModernBERT MICE HuggingFace Implementation.
+ModernBERT MICE (v1) HuggingFace Implementation.
 Custom PreTrainedModel and Modules supporting SDPA, Flash Attention 2, and ST export.
+Without token utility prediction/gating (pure contextualized compressed Cross-Encoder).
 """
 
 import copy
 from dataclasses import dataclass
 import logging
-import math
 from collections import OrderedDict
 from typing import Any, List, Optional, Tuple, Union
 import torch
@@ -49,20 +49,14 @@ class ModernBertMiceOutput(SequenceClassifierOutput):
         logits (torch.FloatTensor): Classification logits of shape (batch_size, num_labels).
         hidden_states (Optional[Tuple[torch.FloatTensor, ...]]): Hidden-states if requested.
         attentions (Optional[Tuple[torch.FloatTensor, ...]]): Attentions if requested.
-        utilities (Optional[torch.FloatTensor]): Predicted token utility scores [B, L, 1] (or [total_tokens, 1]).
-        p_active (Optional[torch.FloatTensor]): Exact active retention probabilities under Hard Concrete gate [B, L, 1].
         doc_hidden (Optional[torch.FloatTensor]): Pre-gating uncompressed document hidden states [B, L, D].
-        pruned_utilities (Optional[torch.FloatTensor]): Post-pruned utility scores if hard pruning is active.
     """
 
     loss: Optional[torch.FloatTensor] = None
     logits: torch.FloatTensor = None
     hidden_states: Optional[Tuple[torch.FloatTensor, ...]] = None
     attentions: Optional[Tuple[torch.FloatTensor, ...]] = None
-    utilities: Optional[torch.FloatTensor] = None
-    p_active: Optional[torch.FloatTensor] = None
     doc_hidden: Optional[torch.FloatTensor] = None
-    pruned_utilities: Optional[torch.FloatTensor] = None
 
 
 def is_fa2_available() -> bool:
@@ -132,257 +126,6 @@ def _unpad_input_with_posids(
     position_ids = row_pos_ids.reshape(-1)[indices].unsqueeze(0)  # [1, total_tokens]
 
     return unpadded_hidden, cu_seqlens, max_seqlen, indices, position_ids
-
-
-class UtilityPredictor(nn.Module):
-    """Two-layer MLP Utility Predictor using ModernBERT's GeGLU activation
-    and a Sigmoid or Hard Concrete (Louizos et al. 2018) output to produce per-token utility scores U in [0, 1].
-    """
-
-    def __init__(
-        self,
-        hidden_dim: int,
-        bottleneck_dim: Optional[int] = None,
-        utility_temp: float = 1.0,
-        utility_bias: float = 5.0,
-        use_hard_concrete: bool = False,
-        hc_gamma: float = -0.1,
-        hc_zeta: float = 1.1,
-    ):
-        super().__init__()
-        if bottleneck_dim is None:
-            bottleneck_dim = hidden_dim * 2
-
-        self.utility_bias = utility_bias
-        self.use_hard_concrete = use_hard_concrete
-        self.hc_gamma = hc_gamma
-        self.hc_zeta = hc_zeta
-
-        self.wi = nn.Linear(hidden_dim, 2 * bottleneck_dim, bias=False)
-        self.wo = nn.Linear(bottleneck_dim, 1, bias=True)
-        self.register_buffer(
-            "temperature", torch.tensor(utility_temp, dtype=torch.float32)
-        )
-        self._init_weights()
-
-    def _init_weights(self):
-        # 1. Initialize wi with standard small weights
-        nn.init.normal_(self.wi.weight, mean=0.0, std=0.02)
-
-        # 2. Keep the output weights very small so input variance doesn't overpower the bias
-        nn.init.normal_(self.wo.weight, mean=0.0, std=0.01)
-
-        # 3. Set the bias to the configured scalar.
-        # logit = 5.0 -> sigmoid(5.0) = 0.9933 (keeps ~99% of utility)
-        if self.wo.bias is not None:
-            nn.init.constant_(self.wo.bias, self.utility_bias)
-
-    # TODO MonkeyPatch for aval - Remove this in next release
-    def _load_from_state_dict(
-        self,
-        state_dict,
-        prefix,
-        local_metadata,
-        strict,
-        missing_keys,
-        unexpected_keys,
-        error_msgs,
-    ):
-        bias_key = prefix + "wo.bias"
-        if bias_key not in state_dict and self.wo.bias is not None:
-            # Handle backward compatibility for legacy checkpoints saved with wo.bias=False:
-            # Set bias to 0.0 to preserve the exact weights/logits of the trained legacy checkpoint
-            state_dict[bias_key] = torch.tensor(
-                [0.0], device=self.wo.weight.device, dtype=self.wo.weight.dtype
-            )
-        temp_key = prefix + "temperature"
-        if temp_key not in state_dict:
-            state_dict[temp_key] = torch.tensor(
-                1.0, device=self.wo.weight.device, dtype=torch.float32
-            )
-        super()._load_from_state_dict(
-            state_dict,
-            prefix,
-            local_metadata,
-            strict,
-            missing_keys,
-            unexpected_keys,
-            error_msgs,
-        )
-
-    def forward(
-        self, h: torch.Tensor, return_p_active: bool = False
-    ) -> Union[torch.Tensor, Tuple[torch.Tensor, Optional[torch.Tensor]]]:
-        """Args:
-            h: Hidden state tensor of shape (batch_size, seq_len, hidden_dim)
-               or (1, total_tokens, hidden_dim)
-            return_p_active: If True, also returns the active probability tensor p_active.
-
-        Returns:
-            u: Utility scores of shape (batch_size, seq_len, 1) or (1, total_tokens, 1) in [0, 1]
-               (or tuple of (u, p_active) if return_p_active=True).
-        """
-        x_val, x_gate = self.wi(h).chunk(2, dim=-1)
-        geglu_out = x_val * torch.nn.functional.gelu(x_gate, approximate="none")
-        logits = self.wo(geglu_out)
-        beta = max(float(self.temperature.item()), 1e-4)
-
-        if not self.use_hard_concrete:
-            u = torch.sigmoid(logits / beta).to(h.dtype)
-            if return_p_active:
-                return u, None
-            return u
-
-        # Hard Concrete L0 formulation:
-        # Closed-form retention probability: P(u > 0) = sigma(z - beta * log(-gamma / zeta))
-        offset = beta * math.log(-self.hc_gamma / self.hc_zeta)
-        p_active = torch.sigmoid(logits - offset).to(h.dtype)
-
-        if self.training:
-            # Clamped uniform noise to avoid log(0)
-            u = torch.rand_like(logits).clamp(1e-6, 1.0 - 1e-6)
-            s = torch.sigmoid((logits + torch.log(u) - torch.log(1.0 - u)) / beta)
-        else:
-            # Deterministic median evaluation (noise u = 0.5 -> log(u) - log(1-u) = 0)
-            s = torch.sigmoid(logits / beta)
-
-        s_bar = s * (self.hc_zeta - self.hc_gamma) + self.hc_gamma
-        u_clamped = torch.clamp(s_bar, min=0.0, max=1.0).to(h.dtype)
-        if return_p_active:
-            return u_clamped, p_active
-        return u_clamped
-
-
-def _hard_prune_unpadded_documents(
-    d_hidden: torch.Tensor,
-    d_pos_ids: torch.Tensor,
-    cu_seqlens_d: torch.Tensor,
-    utilities: torch.Tensor,
-    threshold: float = 0.5,
-    return_pruned_utilities: bool = False,
-) -> Union[
-    Tuple[torch.Tensor, torch.Tensor, torch.Tensor, int],
-    Tuple[torch.Tensor, torch.Tensor, torch.Tensor, int, torch.Tensor],
-]:
-    """
-    Hard-prunes document tokens whose utility score < threshold from 1D unpadded FA2 sequence.
-    When threshold == 0.0 (Hard Concrete pruning), keeps tokens with utility > 0.0.
-    Retains original positional indices (d_pos_ids) for RoPE embeddings in top layers.
-    Rebuilds cu_seqlens_d and max_seqlen_d for remaining unpruned tokens.
-    If return_pruned_utilities is True, also returns pruned_utilities.
-    """
-    batch_size = cu_seqlens_d.shape[0] - 1
-    keep_mask = utilities.squeeze(-1).squeeze(0) > threshold  # [total_tokens]
-
-    cu = cu_seqlens_d.cpu().tolist()
-    kept_per_doc = []
-    for i in range(batch_size):
-        start, end = cu[i], cu[i + 1]
-        if end > start:
-            doc_keep = keep_mask[start:end]
-            num_kept = doc_keep.sum().item()
-            if num_kept == 0:
-                # Ensure each doc keeps at least 1 token (token with highest utility)
-                doc_utils = utilities[0, start:end, 0]
-                best_idx = start + torch.argmax(doc_utils).item()
-                keep_mask[best_idx] = True
-                num_kept = 1
-            kept_per_doc.append(num_kept)
-        else:
-            kept_per_doc.append(0)
-
-    pruned_d_hidden = d_hidden[:, keep_mask, :]
-    pruned_d_pos_ids = d_pos_ids[:, keep_mask] if d_pos_ids is not None else None
-
-    new_cu_seqlens_d = torch.zeros(
-        batch_size + 1, dtype=torch.int32, device=d_hidden.device
-    )
-    new_cu_seqlens_d[1:] = torch.cumsum(
-        torch.tensor(kept_per_doc, device=d_hidden.device, dtype=torch.int32), dim=0
-    )
-    new_max_seqlen_d = max(kept_per_doc) if len(kept_per_doc) > 0 else 0
-
-    if return_pruned_utilities:
-        pruned_utilities = utilities[:, keep_mask, :]
-        return (
-            pruned_d_hidden,
-            pruned_d_pos_ids,
-            new_cu_seqlens_d,
-            new_max_seqlen_d,
-            pruned_utilities,
-        )
-
-    return pruned_d_hidden, pruned_d_pos_ids, new_cu_seqlens_d, new_max_seqlen_d
-
-
-def _hard_prune_padded_documents(
-    d_hidden: torch.Tensor,
-    doc_mask: torch.Tensor,
-    utilities: torch.Tensor,
-    threshold: float = 0.5,
-    return_pruned_utilities: bool = False,
-) -> Union[
-    Tuple[torch.Tensor, torch.Tensor, torch.Tensor],
-    Tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor],
-]:
-    """
-    Hard-prunes document tokens whose utility score < threshold from 3D padded sequence [B, L_d, D].
-    When threshold == 0.0 (Hard Concrete pruning), keeps tokens with utility > 0.0.
-    Constructs new 3D padded tensor [B, max_kept_len, D], new mask [B, max_kept_len],
-    and retained position_ids [B, max_kept_len] preserving original token positions for RoPE.
-    If return_pruned_utilities is True, also returns new_utilities [B, max_kept_len, 1].
-    """
-    batch_size, seq_len, hidden_size = d_hidden.shape
-    valid_mask = (utilities.squeeze(-1) > threshold) & doc_mask.bool()  # [B, L_d]
-
-    for i in range(batch_size):
-        if valid_mask[i].sum().item() == 0:
-            doc_valid = doc_mask[i].bool()
-            if doc_valid.any():
-                doc_utils = utilities[i, :, 0]
-                doc_utils_masked = torch.where(
-                    doc_valid, doc_utils, torch.tensor(-1.0, device=d_hidden.device)
-                )
-                best_idx = torch.argmax(doc_utils_masked).item()
-                valid_mask[i, best_idx] = True
-
-    num_kept = valid_mask.sum(dim=1)  # [B]
-    max_kept_len = int(num_kept.max().item())
-
-    new_d_hidden = torch.zeros(
-        (batch_size, max_kept_len, hidden_size),
-        dtype=d_hidden.dtype,
-        device=d_hidden.device,
-    )
-    new_doc_mask = torch.zeros(
-        (batch_size, max_kept_len), dtype=doc_mask.dtype, device=doc_mask.device
-    )
-    new_pos_ids = torch.zeros(
-        (batch_size, max_kept_len), dtype=torch.long, device=d_hidden.device
-    )
-    if return_pruned_utilities:
-        new_utilities = torch.zeros(
-            (batch_size, max_kept_len, 1),
-            dtype=utilities.dtype,
-            device=utilities.device,
-        )
-
-    orig_pos = torch.arange(seq_len, device=d_hidden.device)
-
-    for i in range(batch_size):
-        kept_indices = torch.nonzero(valid_mask[i], as_tuple=False).squeeze(-1)
-        k = len(kept_indices)
-        if k > 0:
-            new_d_hidden[i, :k] = d_hidden[i, kept_indices]
-            new_doc_mask[i, :k] = 1
-            new_pos_ids[i, :k] = orig_pos[kept_indices]
-            if return_pruned_utilities:
-                new_utilities[i, :k] = utilities[i, kept_indices]
-
-    if return_pruned_utilities:
-        return new_d_hidden, new_doc_mask, new_pos_ids, new_utilities
-
-    return new_d_hidden, new_doc_mask, new_pos_ids
 
 
 def _concat_query_doc_unpadded_old(
@@ -714,21 +457,12 @@ class ModernBertMiceConfig(ModernBertConfig):
         n_interaction_layers: Optional[int] = None,
         bound_bottom_layers: bool = True,
         cross_attn_first: bool = True,
-        utility_pred: bool = False,
-        hard_pruning: Optional[bool] = None,
-        hard_prune_threshold: float = 0.5,
         normalize_doc_embeds: bool = False,
         use_upper_rope: bool = True,
         top_layers_doc_ln: bool = False,
         bottom_final_norm: bool = True,
         top_final_norm: bool = False,
         unified_bottom_pass: bool = True,
-        utility_temp: float = 1.0,
-        utility_bias: float = 5.0,
-        gate_target: str = "h",
-        use_hard_concrete: bool = False,
-        hc_gamma: float = -0.1,
-        hc_zeta: float = 1.1,
         compress_dim: float = 1.0,
         compress_init_option: str = "seed",
         doc_bottleneck_dim: Optional[int] = None,
@@ -748,32 +482,12 @@ class ModernBertMiceConfig(ModernBertConfig):
         self.n_interaction_layers = n_interaction_layers
         self.bound_bottom_layers = bound_bottom_layers
         self.cross_attn_first = cross_attn_first
-        self.utility_pred = utility_pred
         self.normalize_doc_embeds = normalize_doc_embeds
         self.use_upper_rope = use_upper_rope
         self.top_layers_doc_ln = top_layers_doc_ln
         self.bottom_final_norm = bottom_final_norm
         self.top_final_norm = top_final_norm
         self.unified_bottom_pass = unified_bottom_pass
-        self.utility_temp = utility_temp
-        self.utility_bias = utility_bias
-        if gate_target not in ("h", "v"):
-            raise ValueError(
-                f"Unknown gate_target: '{gate_target}'. Expected 'h' or 'v'."
-            )
-        self.gate_target = gate_target
-        if hc_zeta <= hc_gamma:
-            raise ValueError(
-                f"hc_zeta ({hc_zeta}) must be strictly greater than hc_gamma ({hc_gamma})"
-            )
-        self.use_hard_concrete = use_hard_concrete
-        self.hc_gamma = hc_gamma
-        self.hc_zeta = hc_zeta
-        if hard_pruning is None:
-            self.hard_pruning = True if use_hard_concrete else False
-        else:
-            self.hard_pruning = hard_pruning
-        self.hard_prune_threshold = hard_prune_threshold
         assert compress_dim >= 1.0, f"compress_dim must be >= 1.0, got {compress_dim}"
         self.compress_dim = compress_dim
         self.compress_init_option = compress_init_option
@@ -837,7 +551,6 @@ class ModernBertMiceCrossAttention(nn.Module):
         cu_seqlens_d: Optional[torch.Tensor] = None,
         max_seqlen_q: Optional[int] = None,
         max_seqlen_d: Optional[int] = None,
-        d_utilities: Optional[torch.Tensor] = None,
         **kwargs,
     ) -> torch.Tensor:
         attn_impl = getattr(self.config, "_attn_implementation", "sdpa")
@@ -868,13 +581,6 @@ class ModernBertMiceCrossAttention(nn.Module):
             value_states = d_qkv[:, :, 2].transpose(
                 1, 2
             )  # [1, heads, total_d, head_dim]
-
-            if d_utilities is not None:
-                # Value-only gating: broadcast [1, total_d, 1] -> [1, 1, total_d, 1] over heads & head_dim
-                u_scale = d_utilities.squeeze(-1)[:, None, :, None].to(
-                    value_states.dtype
-                )
-                value_states = value_states * u_scale
 
             if (
                 query_states.dtype != value_states.dtype
@@ -929,11 +635,6 @@ class ModernBertMiceCrossAttention(nn.Module):
         key_states = d_qkv[:, :, 1].transpose(1, 2)  # [B, heads, d_len, head_dim]
         value_states = d_qkv[:, :, 2].transpose(1, 2)  # [B, heads, d_len, head_dim]
 
-        if d_utilities is not None:
-            # Value-only gating: broadcast [B, d_len, 1] -> [B, 1, d_len, 1] over heads & head_dim
-            u_scale = d_utilities.squeeze(-1)[:, None, :, None].to(value_states.dtype)
-            value_states = value_states * u_scale
-
         if q_mask is None:
             q_mask = torch.ones(
                 (batch_size, q_len), dtype=torch.bool, device=q_hidden.device
@@ -964,10 +665,6 @@ class ModernBertMiceCrossAttention(nn.Module):
             d_un_qkv = self.Wqkv(d_unpadded).view(-1, 3, self.num_heads, self.head_dim)
             K_un = d_un_qkv[:, 1].unsqueeze(0)
             V_un = d_un_qkv[:, 2].unsqueeze(0)
-
-            if d_utilities is not None:
-                u_unpadded, _, _, _, _ = _unpad_input(d_utilities, d_mask)
-                V_un = V_un * u_unpadded.view(1, -1, 1, 1).to(V_un.dtype)
 
             if Q_un.dtype != V_un.dtype or Q_un.dtype != K_un.dtype:
                 logger.warning(
@@ -1097,7 +794,6 @@ class ModernBertMiceTopLayer(nn.Module):
         self,
         q_hidden: torch.Tensor,
         d_hidden: Optional[torch.Tensor] = None,
-        d_utilities: Optional[torch.Tensor] = None,
         q_mask: Optional[torch.Tensor] = None,
         d_mask: Optional[torch.Tensor] = None,
         q_attn_mask: Optional[torch.Tensor] = None,
@@ -1113,18 +809,6 @@ class ModernBertMiceTopLayer(nn.Module):
         # Cross Attention
         if self.cross_attn is not None and d_hidden is not None:
             norm_d_hidden = self.doc_cross_attn_norm(d_hidden)
-            gate_target = getattr(self.config, "gate_target", "h")
-            if gate_target == "h":
-                if d_utilities is not None:
-                    norm_d_hidden = norm_d_hidden * d_utilities.to(norm_d_hidden.dtype)
-                cross_attn_utilities = None
-            elif gate_target == "v":
-                cross_attn_utilities = d_utilities
-            else:
-                raise ValueError(
-                    f"Unknown gate_target: '{gate_target}'. Expected 'h' or 'v'."
-                )
-
             cross_out = self.cross_attn(
                 self.cross_attn_norm(q_hidden),
                 norm_d_hidden,
@@ -1134,7 +818,6 @@ class ModernBertMiceTopLayer(nn.Module):
                 cu_seqlens_d=cu_seqlens_d,
                 max_seqlen_q=max_seqlen_q,
                 max_seqlen_d=max_seqlen_d,
-                d_utilities=cross_attn_utilities,
                 **kwargs,
             )
             q_hidden = q_hidden + cross_out
@@ -1323,19 +1006,6 @@ class ModernBertMiceForSequenceClassification(ModernBertPreTrainedModel):
 
         # 3. Top interaction layers, adapter, and classification head
         self.build_top_layers()
-
-        if getattr(config, "utility_pred", False):
-            self.utility_predictor = UtilityPredictor(
-                config.hidden_size,
-                utility_temp=config.utility_temp,
-                utility_bias=getattr(config, "utility_bias", 5.0),
-                use_hard_concrete=getattr(config, "use_hard_concrete", False),
-                hc_gamma=getattr(config, "hc_gamma", -0.1),
-                hc_zeta=getattr(config, "hc_zeta", 1.1),
-            )
-        else:
-            self.utility_predictor = None
-
         self.post_init()
 
     def build_top_layers(
@@ -1576,8 +1246,6 @@ class ModernBertMiceForSequenceClassification(ModernBertPreTrainedModel):
 
     def _init_weights(self, module):
         super()._init_weights(module)
-        if isinstance(module, UtilityPredictor):
-            module._init_weights()
 
     def _forward_bottom(
         self,
@@ -1895,17 +1563,6 @@ class ModernBertMiceForSequenceClassification(ModernBertPreTrainedModel):
                 q_pos_emb_top,
             )
 
-    def freeze_utility(self):
-        """Freezes utility predictor parameters."""
-        if self.utility_predictor is not None:
-            for param in self.utility_predictor.parameters():
-                param.requires_grad = False
-            logger.info("[MICE v2] Frozen utility predictor.")
-        else:
-            logger.debug(
-                "[MICE v2] freeze_utility called but utility_predictor is None."
-            )
-
     def freeze_bottom_layers(self):
         """Freezes bottom contextualization layers, embeddings, and rotary embeddings."""
         for param in self.model.embeddings.parameters():
@@ -1953,92 +1610,18 @@ class ModernBertMiceForSequenceClassification(ModernBertPreTrainedModel):
         Optional[torch.Tensor],
         Optional[int],
         Optional[torch.Tensor],
-        Optional[torch.Tensor],
-        Optional[torch.Tensor],
-        Optional[torch.Tensor],
-        Optional[torch.Tensor],
+        torch.Tensor,
     ]:
         """Postprocessing of the contextualized token representations:
-        First centering the hs and L2 norm for FastPLAID index and calculating
-        token utilities and applies soft gating or hard token pruning.
-        Returns updated (d_hidden, doc_mask, cu_seqlens_d, max_seqlen_d, d_pos_ids,
-        utilities, p_active, d_hidden_pre_gate, pruned_utilities).
+        First centering the hs and L2 norm for FastPLAID index, then applying
+        bottleneck projection if configured.
+        Returns (d_hidden, doc_mask, cu_seqlens_d, max_seqlen_d, d_pos_ids, d_hidden_pre_gate).
         """
         if getattr(self.config, "normalize_doc_embeds", False):
             d_hidden = d_hidden - torch.mean(d_hidden, dim=-1, keepdim=True)
             d_hidden = torch.nn.functional.normalize(d_hidden, p=2, dim=-1)
 
         d_hidden_pre_gate = d_hidden
-        utilities = None
-        p_active = None
-        pruned_utilities = None
-
-        if self.utility_predictor is not None:
-            hard_prune = self.config.hard_pruning
-            threshold = (
-                0.0
-                if getattr(self.config, "use_hard_concrete", False)
-                else self.config.hard_prune_threshold
-            )
-            utilities, p_active = self.utility_predictor(d_hidden, return_p_active=True)
-
-            if hard_prune:
-                if use_unpadded and cu_seqlens_d is not None:
-                    (
-                        d_hidden,
-                        d_pos_ids,
-                        cu_seqlens_d,
-                        max_seqlen_d,
-                        pruned_utils,
-                    ) = _hard_prune_unpadded_documents(
-                        d_hidden,
-                        d_pos_ids,
-                        cu_seqlens_d,
-                        utilities,
-                        threshold=threshold,
-                        return_pruned_utilities=True,
-                    )
-                else:
-                    if doc_mask is None:
-                        doc_mask = torch.ones(
-                            (d_hidden.shape[0], d_hidden.shape[1]),
-                            dtype=torch.bool,
-                            device=d_hidden.device,
-                        )
-                    (
-                        d_hidden,
-                        doc_mask,
-                        d_pos_ids,
-                        pruned_utils,
-                    ) = _hard_prune_padded_documents(
-                        d_hidden,
-                        doc_mask,
-                        utilities,
-                        threshold=threshold,
-                        return_pruned_utilities=True,
-                    )
-                pruned_utilities = pruned_utils
-                gate_target = getattr(self.config, "gate_target", "h")
-                if gate_target == "h" and not getattr(
-                    self.config, "top_layers_doc_ln", False
-                ):
-                    d_hidden = d_hidden * pruned_utilities.to(d_hidden.dtype)
-            else:
-                gate_target = getattr(self.config, "gate_target", "h")
-                if gate_target == "h":
-                    if not getattr(self.config, "top_layers_doc_ln", False):
-                        # Legacy soft gating: multiply in post-processing
-                        d_hidden = d_hidden * utilities.to(d_hidden.dtype)
-                    else:
-                        # Defer soft gating to top_layers (applied post-doc_cross_attn_norm)
-                        pass
-                elif gate_target == "v":
-                    # Value-only gating: defer gating to cross-attention Value projections
-                    pass
-                else:
-                    raise ValueError(
-                        f"Unknown gate_target: '{gate_target}'. Expected 'h' or 'v'."
-                    )
 
         if self.doc_compress is not None:
             d_hidden = self.doc_compress(d_hidden)
@@ -2051,10 +1634,7 @@ class ModernBertMiceForSequenceClassification(ModernBertPreTrainedModel):
             cu_seqlens_d,
             max_seqlen_d,
             d_pos_ids,
-            utilities,
-            p_active,
             d_hidden_pre_gate,
-            pruned_utilities,
         )
 
     def encode_documents(
@@ -2065,13 +1645,10 @@ class ModernBertMiceForSequenceClassification(ModernBertPreTrainedModel):
     ) -> Tuple[torch.Tensor, Optional[torch.Tensor]]:
         """Encode documents through bottom contextualization layers.
 
-        Returns (d_hidden, doc_mask): doc_mask is returned alongside d_hidden because
-        hard pruning shortens d_hidden's sequence dimension, so callers need the
-        post-pruning mask rather than the original tokenizer mask to know which
-        positions are real tokens.
+        Returns (d_hidden, doc_mask).
         """
         d_hidden, _ = self._forward_bottom(doc_ids, mask=doc_mask, **kwargs)
-        d_hidden, doc_mask, _, _, _, _, _, _, _ = self._document_embed_post_process(
+        d_hidden, doc_mask, _, _, _, _ = self._document_embed_post_process(
             d_hidden, doc_mask, use_unpadded=False
         )
         return d_hidden, doc_mask
@@ -2150,10 +1727,7 @@ class ModernBertMiceForSequenceClassification(ModernBertPreTrainedModel):
             and _unpad_input is not None
         )
 
-        utilities = None
-        p_active = None
         d_hidden_pre_gate = None
-        pruned_utilities = None
 
         if doc_hidden is not None:
             # Path A: Pre-encoded document embeddings (from index / cache / encode_documents).
@@ -2299,10 +1873,7 @@ class ModernBertMiceForSequenceClassification(ModernBertPreTrainedModel):
                 cu_seqlens_d,
                 max_seqlen_d,
                 d_pos_ids,
-                utilities,
-                p_active,
                 d_hidden_pre_gate,
-                pruned_utilities,
             ) = self._document_embed_post_process(
                 d_hidden,
                 doc_mask,
@@ -2316,38 +1887,6 @@ class ModernBertMiceForSequenceClassification(ModernBertPreTrainedModel):
             if self.doc_decompress is not None:
                 d_hidden = self.doc_decompress(d_hidden)
 
-        # 3. Top Cross-Attention Utilities (for Value-gating, if active)
-        # Pre-encoded doc_hidden already baked in soft-gating or physical pruning during indexing.
-        if doc_hidden is not None:
-            d_utilities = None
-        elif self.utility_predictor is not None:
-            if getattr(self.config, "hard_pruning", False):
-                if getattr(self.config, "use_hard_concrete", False):
-                    # Hard Concrete Value-gated slicing: pass pruned utilities to top layers
-                    d_utilities = (
-                        pruned_utilities
-                        if (
-                            getattr(self.config, "top_layers_doc_ln", False)
-                            or getattr(self.config, "gate_target", "h") == "v"
-                        )
-                        else None
-                    )
-                else:
-                    # Legacy Phase 2 hard pruning: utilities discarded in top layers
-                    d_utilities = None
-            else:
-                # Soft gating or unpruned ablation
-                d_utilities = (
-                    utilities
-                    if (
-                        getattr(self.config, "top_layers_doc_ln", False)
-                        or getattr(self.config, "gate_target", "h") == "v"
-                    )
-                    else None
-                )
-        else:
-            d_utilities = None
-
         # apply the projection for the query.
         # document are done in the post processing.
         if self.adapter is not None:
@@ -2360,16 +1899,7 @@ class ModernBertMiceForSequenceClassification(ModernBertPreTrainedModel):
         )
         if not self.config.use_cross_attn:
             # When use_cross_attn is False (Concat-Self Attention mode):
-            # 1. Apply any pending soft gating utilities to document representations
-            if d_utilities is not None:
-                if self.config.gate_target == "v":
-                    logger.warning(
-                        "[ModernBertMiceModel] gate_target='v' was configured but use_cross_attn=False (Concat-Self Attention mode). "
-                        "Falling back to gating d_hidden directly."
-                    )
-                d_hidden = d_hidden * d_utilities.to(d_hidden.dtype)
-
-            # 2. Concatenate [query, doc] into a single joint sequence [CLS] q [SEP] d [SEP]
+            # Concatenate [query, doc] into a single joint sequence [CLS] q [SEP] d [SEP]
             #    and recompute RoPE embeddings across the entire concatenated sequence.
             if use_unpadded:
                 (
@@ -2414,7 +1944,6 @@ class ModernBertMiceForSequenceClassification(ModernBertPreTrainedModel):
                 q_hidden = top_layer(
                     q_hidden,
                     d_hidden,
-                    d_utilities=d_utilities,
                     q_position_embeddings=q_pos_emb_top,
                     is_last_layer=(i == num_top - 1),
                     cu_seqlens_q=cu_seqlens_q,
@@ -2444,7 +1973,6 @@ class ModernBertMiceForSequenceClassification(ModernBertPreTrainedModel):
                 q_hidden = top_layer(
                     q_hidden,
                     d_hidden,
-                    d_utilities=d_utilities,
                     q_mask=query_mask,
                     d_mask=doc_mask,
                     q_attn_mask=q_attn_mask,
@@ -2480,10 +2008,7 @@ class ModernBertMiceForSequenceClassification(ModernBertPreTrainedModel):
         return ModernBertMiceOutput(
             loss=loss,
             logits=logits,
-            utilities=utilities,
-            p_active=p_active,
             doc_hidden=d_hidden_pre_gate,
-            pruned_utilities=pruned_utilities,
         )
 
 

@@ -47,10 +47,7 @@ from training_utils import (
 
 from MICE.modeling.mice_v2.modernbert_xpm import (
     mice_v2_scorer,
-    UtilityRegularizer,
-    GatedValueRegularizer,
     InitMICEV2FromCheckpoint,
-    InitEvalSparsityHook,
 )
 from xp_utils import setup_logging
 
@@ -75,86 +72,20 @@ class MiceV2_FineTuning(CE_FineTuning):
     attn_implementation: GridSearch[Optional[str]] = None
     """Attention implementation (e.g. 'flash_attention_2', 'sdpa', 'eager')"""
 
-    utility_pred: GridSearch[bool] = False
-    """Whether to enable 2-layer MLP soft-gating utility predictor on document tokens"""
-
-    lambda_reg: GridSearch[float] = 0.0
-    """Regularization weight for the Utility predictor"""
-
-    reg_target: GridSearch[str] = "u"
-    """Target for regularization: 'u' for mean utility loss, 'u_wv_h' for gated value norm loss (u * W_V * h)"""
-
-    gate_target: GridSearch[str] = "h"
-    """Target representation for gating: 'h' for full document hidden states (scales K and V), 'v' for cross-attention Value vectors only"""
-
-    use_hard_concrete: GridSearch[bool] = False
-    """Whether to use Hard Concrete L0 distribution sampling and regularization"""
-
-    hc_gamma: GridSearch[float] = -0.1
-    """Hard concrete lower stretch parameter gamma (default -0.1)"""
-
-    hc_zeta: GridSearch[float] = 1.1
-    """Hard concrete upper stretch parameter zeta (default 1.1)"""
-
-    hard_pruning: GridSearch[Optional[bool]] = None
-    """Whether to physically drop tokens. Defaults to True if use_hard_concrete=True, else False."""
-
-    reg_budget: GridSearch[Optional[float]] = None
-    """Optional target retention budget for utility regularizer (e.g. 0.3 for 30% retention). If None, standard linear L1 regularization is used."""
-
-    l2_reg: GridSearch[bool] = False
-    """Whether to square the regularization penalty (L2 instead of L1) for smoother optimization"""
-
-    phase2_training: GridSearch[bool] = False
-    """Whether to run Phase 2 hard token pruning fine-tuning after Phase 1 soft gating"""
-
-    hard_prune_threshold: GridSearch[float] = 0.5
-    """Utility threshold below which document tokens are hard dropped in Phase 2"""
-
-    normalize_doc_embeds: GridSearch[bool] = False
-    """Whether to L2-normalize document hidden states before utility prediction and upper interaction layers"""
-
-    phase2_max_epochs: GridSearch[int] = 3
-    """Number of training epochs for Phase 2 top layer fine-tuning"""
-
-    freeze_bottom_layers: GridSearch[bool] = True
-    """Whether to freeze bottom contextualization layers during Phase 2 training (utility predictor is always frozen)"""
-
-    freeze_bottom_layers_phase1: GridSearch[bool] = False
-    """Whether to freeze bottom contextualization layers during Phase 1 training (embeddings and bottom layers frozen, leaving top layers, utility predictor, and head trainable)"""
+    freeze_bottom_layers: GridSearch[bool] = False
+    """Whether to freeze bottom contextualization layers (embeddings and bottom layers frozen, leaving top layers and head trainable)"""
 
     freeze_top_layers: GridSearch[bool] = False
     """Whether to freeze top interaction layers, adapter, rotary embeddings, and classification head (leaving bottleneck parameters trainable)"""
 
-    eval_phase_1: GridSearch[bool] = False
-    """Whether to also evaluate the Phase 1 model (soft gating without hard pruning) when phase2_training is enabled."""
-
     use_upper_rope: GridSearch[bool] = True
     """Whether to use Rotary Position Embedding (RoPE) in upper interaction layers"""
-
-    top_layers_doc_ln: GridSearch[bool] = False
-    """Whether to use a document LayerNorm in top interaction layers and multiply token utilities post-LayerNorm"""
 
     bottom_final_norm: GridSearch[bool] = True
     """Whether to apply LayerNorm at the output of bottom contextualization layers"""
 
     top_final_norm: GridSearch[bool] = False
     """Whether to apply LayerNorm at the output of top interaction layers before classifier"""
-
-    utility_bias: GridSearch[float] = 5.0
-    """Initial bias scalar for utility predictor output projection wo.bias"""
-
-    temp_start: GridSearch[float] = 1.0
-    """Initial temperature for utility predictor sigmoid (default 1.0)"""
-
-    temp_end: GridSearch[float] = 0.1
-    """Final temperature for utility predictor sigmoid after annealing (default 0.1)"""
-
-    temp_schedule: GridSearch[str] = "cosine"
-    """Schedule type for temperature annealing: 'linear', 'cosine', or 'exp'"""
-
-    temp_anneal_steps: GridSearch[Optional[int]] = None
-    """Number of training steps to anneal temperature over. If None, anneals over total training steps."""
 
     compress_dim: GridSearch[float] = 1.0
     """Compression ratio (>=1.0) applied to hidden_size/intermediate_size/num_attention_heads of the top interaction layers only"""
@@ -174,9 +105,6 @@ class MiceV2_FineTuning(CE_FineTuning):
     head_type: GridSearch[str] = "linear"
     """Type of classification head: 'linear' (default) or 'st_reranker'"""
 
-    eval_sparsity: bool = False
-    """Whether to compute token sparsity, mean utility, and token retention ratio during evaluation benchmarks"""
-
     query_prompt: GridSearch[Optional[str]] = None
     """Optional query prompt template or prefix (e.g. '[Q] ' or 'query: ')"""
 
@@ -186,13 +114,12 @@ class MiceV2_FineTuning(CE_FineTuning):
 
 def build_mice_v2(
     cfg: MiceV2_FineTuning,
-    phase_2: bool = False,
     cfg_tags: Optional[dict] = None,
 ):
     """Factory helper to build MICE V2 scorer with all architectural flags."""
     from_exp = getattr(cfg, "from_experiment", None)
     checkpoint_loader = None
-    if from_exp and not phase_2:
+    if from_exp:
         checkpoint_loader = resolve_trained_model_loader(from_exp)
         validate_and_align_config(
             cfg, checkpoint_loader.model, tags=cfg_tags, from_ref=from_exp
@@ -206,10 +133,8 @@ def build_mice_v2(
 
     attn_impl = cfg.attn_implementation or cfg.pref_attn_implementation
 
-    freeze_bottom = (
-        cfg.freeze_bottom_layers
-        if (phase_2 or cfg.hard_pruning)
-        else cfg.freeze_bottom_layers_phase1
+    freeze_bottom = getattr(cfg, "freeze_bottom_layers", False) or getattr(
+        cfg, "freeze_bottom_layers_phase1", False
     )
 
     kwargs = dict(
@@ -219,18 +144,9 @@ def build_mice_v2(
         n_interaction_layers=cfg.n_interaction_layers,
         bound_bottom_layers=cfg.bound_bottom_layers,
         attn_implementation=attn_impl,
-        utility_pred=cfg.utility_pred,
-        normalize_doc_embeds=cfg.normalize_doc_embeds,
         use_upper_rope=cfg.use_upper_rope,
-        top_layers_doc_ln=cfg.top_layers_doc_ln,
         bottom_final_norm=cfg.bottom_final_norm,
         top_final_norm=cfg.top_final_norm,
-        utility_temp=cfg.temp_start,
-        utility_bias=cfg.utility_bias,
-        gate_target=cfg.gate_target,
-        use_hard_concrete=cfg.use_hard_concrete,
-        hc_gamma=cfg.hc_gamma,
-        hc_zeta=cfg.hc_zeta,
         compress_dim=cfg.compress_dim,
         compress_init_option=cfg.compress_init_option,
         doc_bottleneck_dim=cfg.doc_bottleneck_dim,
@@ -244,37 +160,6 @@ def build_mice_v2(
         freeze_bottom_layers=freeze_bottom,
     )
 
-    if phase_2:
-        logging.info(
-            f"[Phase 2] Building MICE V2 model for hard pruning fine-tuning (threshold={cfg.hard_prune_threshold})"
-        )
-        kwargs.update(
-            utility_pred=True,
-            hard_pruning=True,
-            hard_prune_threshold=cfg.hard_prune_threshold,
-        )
-    elif cfg.use_hard_concrete:
-        logging.info(
-            "[Single-Phase HC] Building MICE V2 model with Hard Concrete pruning"
-        )
-        kwargs.update(
-            hard_pruning=True if cfg.hard_pruning is None else cfg.hard_pruning,
-            hard_prune_threshold=0.0,
-        )
-    elif cfg.hard_pruning:
-        logging.info(
-            f"[Hard Pruning] Building MICE V2 model with hard pruning (threshold={cfg.hard_prune_threshold})"
-        )
-        kwargs.update(
-            utility_pred=True,
-            hard_pruning=True,
-            hard_prune_threshold=cfg.hard_prune_threshold,
-        )
-    else:
-        logging.info(
-            f"[Phase 1] Building MICE V2 model for soft gating training (utility_pred={cfg.utility_pred})"
-        )
-
     scorer, init_tasks = mice_v2_scorer(**kwargs)
 
     if checkpoint_loader is not None:
@@ -283,7 +168,6 @@ def build_mice_v2(
                 scorer=scorer,
                 checkpoint_loader=stop_tags(checkpoint_loader),
                 freeze_bottom_layers=freeze_bottom,
-                freeze_utility=phase_2,
                 freeze_top_layers=cfg.freeze_top_layers,
             )
         ]
@@ -305,36 +189,23 @@ def get_name_from_tags(model_tags: dict, cfg: MiceV2_FineTuning) -> str:
     use_upper_rope = model_tags.get("use_upper_rope", cfg.use_upper_rope)
     rope_suffix = "" if use_upper_rope else "-norope"
 
-    top_layers_doc_ln = model_tags.get("top_layers_doc_ln", cfg.top_layers_doc_ln)
-    doc_ln_suffix = "-docln" if top_layers_doc_ln else ""
-
     bottom_final_norm = model_tags.get("bottom_final_norm", cfg.bottom_final_norm)
     nobottomln_suffix = "" if bottom_final_norm else "-nobottomln"
 
     top_final_norm = model_tags.get("top_final_norm", cfg.top_final_norm)
     topln_suffix = "-topln" if top_final_norm else ""
 
-    gate_target = model_tags.get("gate_target", getattr(cfg, "gate_target", "h"))
-    gate_suffix = "-gatev" if gate_target == "v" else ""
-
-    use_hard_concrete = model_tags.get(
-        "use_hard_concrete", getattr(cfg, "use_hard_concrete", False)
-    )
-    hc_suffix = "-hc" if use_hard_concrete else ""
-
-    hard_pruning = model_tags.get("hard_pruning", getattr(cfg, "hard_pruning", None))
-    prune_suffix = (
-        "-nohardprune" if (use_hard_concrete and hard_pruning is False) else ""
-    )
-
     head_type = model_tags.get("head_type", getattr(cfg, "head_type", "linear"))
     head_suffix = f"-{head_type}" if head_type and head_type != "linear" else ""
 
-    freeze_bottom_phase1 = model_tags.get(
-        "freeze_bottom_layers_phase1",
-        getattr(cfg, "freeze_bottom_layers_phase1", False),
+    freeze_bottom = model_tags.get(
+        "freeze_bottom_layers",
+        model_tags.get(
+            "freeze_bottom_layers_phase1",
+            getattr(cfg, "freeze_bottom_layers", False),
+        ),
     )
-    freeze_bottom_suffix = "-freezebottom" if freeze_bottom_phase1 else ""
+    freeze_bottom_suffix = "-freezebottom" if freeze_bottom else ""
 
     freeze_top = model_tags.get(
         "freeze_top_layers",
@@ -352,9 +223,6 @@ def get_name_from_tags(model_tags: dict, cfg: MiceV2_FineTuning) -> str:
     )
     dbot_suffix = f"-dbot{doc_bot_dim}" if doc_bot_dim else ""
 
-    utility_bias = model_tags.get("utility_bias", getattr(cfg, "utility_bias", 5.0))
-    ubias_suffix = f"-ubias{utility_bias}" if utility_bias != 5.0 else ""
-
     attn_impl = model_tags.get("attn_implementation", cfg.attn_implementation)
     attn_suffix = f"-{attn_impl}" if attn_impl else ""
 
@@ -363,7 +231,7 @@ def get_name_from_tags(model_tags: dict, cfg: MiceV2_FineTuning) -> str:
     if len(loss):
         loss = f"-{loss}"
 
-    return f"MiceV2-l{n_ctx_layers}{doc_suffix}{rope_suffix}{doc_ln_suffix}{nobottomln_suffix}{topln_suffix}{gate_suffix}{hc_suffix}{prune_suffix}{freeze_bottom_suffix}{freeze_top_suffix}{compress_suffix}{dbot_suffix}{head_suffix}{ubias_suffix}{attn_suffix}-{base}{loss}"
+    return f"MiceV2-l{n_ctx_layers}{doc_suffix}{rope_suffix}{nobottomln_suffix}{topln_suffix}{freeze_bottom_suffix}{freeze_top_suffix}{compress_suffix}{dbot_suffix}{head_suffix}{attn_suffix}-{base}{loss}"
 
 
 def TrainEvaluateMiceV2(
@@ -523,46 +391,6 @@ def TrainEvaluateMiceV2(
             freeze_hook = FreezeParameterHook.C(pattern=cfg.freeze_LN_pattern)
             learner_hooks.append(freeze_hook)
 
-        # Phase 1 hooks: base hooks + UtilityRegularizer (if soft gating utility prediction is active)
-
-        if cfg.utility_pred and cfg.lambda_reg > 0.0:
-            histogram_interval = (
-                cfg.learner.validation_interval
-                * cfg.learner.optimization.steps_per_epoch
-            )
-            if cfg.reg_target == "u":
-                ce_trainer.hooks.append(
-                    UtilityRegularizer.C(
-                        lambda_reg=cfg.lambda_reg,
-                        budget=cfg.reg_budget,
-                        l2_reg=cfg.l2_reg,
-                        temp_start=cfg.temp_start,
-                        temp_end=cfg.temp_end,
-                        temp_anneal_steps=cfg.temp_anneal_steps,
-                        temp_schedule=cfg.temp_schedule,
-                        histogram_interval=histogram_interval,
-                        sparsity_threshold=cfg.hard_prune_threshold,
-                    )
-                )
-            elif cfg.reg_target == "u_wv_h":
-                ce_trainer.hooks.append(
-                    GatedValueRegularizer.C(
-                        lambda_reg=cfg.lambda_reg,
-                        budget=cfg.reg_budget,
-                        l2_reg=cfg.l2_reg,
-                        temp_start=cfg.temp_start,
-                        temp_end=cfg.temp_end,
-                        temp_anneal_steps=cfg.temp_anneal_steps,
-                        temp_schedule=cfg.temp_schedule,
-                        histogram_interval=histogram_interval,
-                        sparsity_threshold=cfg.hard_prune_threshold,
-                    )
-                )
-            else:
-                raise ValueError(
-                    f"Unknown reg_target: '{cfg.reg_target}'. Expected 'u' or 'u_wv_h'."
-                )
-
         # Build the model using the provided factory
         model, model_init_tasks = build_mice_v2(cfg, cfg_tags=cfg_tags)
 
@@ -574,7 +402,6 @@ def TrainEvaluateMiceV2(
         for i in range(cfg.nb_repetitions):
             seed = np.random.RandomState(cfg.seed + i).randint((2**32) - 1)
             random = Random.C(seed=seed).tag("seed", seed)
-            phases_to_evaluate = []
 
             # The validation listener evaluates the full retriever
             # (retriever + scorer) and keep the best performing model
@@ -585,36 +412,19 @@ def TrainEvaluateMiceV2(
                 retriever_tag,
             )
 
-            optimizers = cfg.learner.optimization.optimizer
-            if cfg.phase2_training:
-                total_epochs = (
-                    cfg.learner.optimization.max_epochs + cfg.phase2_max_epochs
-                )
-                total_steps = total_epochs * cfg.learner.optimization.steps_per_epoch
-                optimizers = cfg.learner.optimization.get_optimizers_with_total_steps(
-                    total_steps
-                )
-
             # The learner trains the model
             learner = Learner.C(
-                # Misc settings
                 random=random,
-                trainer=ce_trainer,  # How to train the model
-                model=model,  # The model to train
-                # Optimization settings
+                trainer=ce_trainer,
+                model=model,
                 steps_per_epoch=cfg.learner.optimization.steps_per_epoch,
-                optimizers=optimizers,
+                optimizers=cfg.learner.optimization.optimizer,
                 max_epochs=cfg.learner.optimization.max_epochs,
                 checkpoint_interval=cfg.learner.checkpoint_interval,
-                # The listeners (here, for validation)
-                listeners=stop_tags(validations),  # don't grab tags for validation
-                # The hook used for evaluation
+                listeners=stop_tags(validations),
                 hooks=learner_hooks,
-                # fabric settings
                 fabric_config=cfg.learner.fabric.get_config(),
             )
-            if cfg.phase2_training:
-                learner.tag("phase", 1)
 
             learners.append(learner)
 
@@ -623,165 +433,72 @@ def TrainEvaluateMiceV2(
                 launcher=launcher_learner,
                 init_tasks=model_init_tasks,
             )
-            # this links the tensorboard run dir to in the xp/results/run folder, so that we can access it easily.
             if helper.xp.run_mode == RunMode.NORMAL:
                 helper.tensorboard_service.add(learner, learner.logpath)
 
-            if cfg.phase2_training:
-                total_epochs = (
-                    cfg.learner.optimization.max_epochs + cfg.phase2_max_epochs
-                )
-
-                logging.info(
-                    f"[Phase 2] Launching Hard Pruning Fine-Tuning (threshold={cfg.hard_prune_threshold}, max_epochs={cfg.phase2_max_epochs}, total_epochs={total_epochs})"
-                )
-                # Build the Phase 2 model for hard pruning fine-tuning
-                model_phase2, _ = build_mice_v2(cfg, phase_2=True)
-
-                for k, v in cfg_tags.items():
-                    model_phase2.tag(k, v)
-
-                validations_p2, tracked_validations_p2 = validation_set.build_listeners(
-                    model_phase2,
-                    val_run_retriever_factory,
-                    retriever_tag,
-                )
-
-                learner_p2 = Learner.C(
-                    random=random,
-                    # Build a new trainer for phase 2, as it may have different hooks (e.g., no utility regularizer)
-                    trainer=build_trainer(cfg),
-                    model=model_phase2,
-                    steps_per_epoch=cfg.learner.optimization.steps_per_epoch,
-                    optimizers=optimizers,
-                    max_epochs=cfg.phase2_max_epochs,
-                    checkpoint_interval=cfg.learner.checkpoint_interval,
-                    listeners=stop_tags(validations_p2),
-                    hooks=learner_hooks,
-                    fabric_config=cfg.learner.fabric.get_config(),
-                ).tag("phase", 2)
-
-                learners.append(learner_p2)
-
-                p2_init_task = InitMICEV2FromCheckpoint.C(
-                    scorer=model_phase2,
-                    checkpoint_loader=stop_tags(
-                        outputs.learned_model
-                    ),  # use outputs from phase 1 as init for phase 2
-                    freeze_bottom_layers=cfg.freeze_bottom_layers,
-                    freeze_top_layers=cfg.freeze_top_layers,
-                )
-
-                outputs_p2 = learner_p2.submit(
-                    launcher=launcher_learner,
-                    init_tasks=[p2_init_task],
-                )
-                if helper.xp.run_mode == RunMode.NORMAL:
-                    helper.tensorboard_service.add(learner_p2, learner_p2.logpath)
-
-                phases_to_evaluate.append(
-                    (2, model_phase2, outputs_p2, tracked_validations_p2)
-                )
-
-                if cfg.eval_phase_1:
-                    phases_to_evaluate.append((1, model, outputs, tracked_validations))
-
-            else:
-                phases_to_evaluate.append((1, model, outputs, tracked_validations))
-
             # Build list of models to evaluate: (model_id, load_model, label, eval_model)
-
             models_to_evaluate = []
             checkpoint_modes = cfg.evaluation.get_checkpoint_modes()
 
-            for (
-                phase_num,
-                current_model,
-                current_outputs,
-                current_tracked_validations,
-            ) in phases_to_evaluate:
-                phase_prefix = f"-p{phase_num}" if cfg.phase2_training else ""
-                current_learner = learner_p2 if phase_num == 2 else learner
-
-                for mode in checkpoint_modes:
-                    # 1. Best validation checkpoints
-                    if mode == CheckpointSelection.VAL:
-                        for (
-                            name,
-                            tracked_validation,
-                        ) in current_tracked_validations.items():
-                            logging.info(
-                                f"Adding validation model for evaluation (Phase {phase_num}): {name}"
+            for mode in checkpoint_modes:
+                # 1. Best validation checkpoints
+                if mode == CheckpointSelection.VAL:
+                    for name, tracked_validation in tracked_validations.items():
+                        logging.info(f"Adding validation model for evaluation: {name}")
+                        for metric_name in tracked_validation.monitored():
+                            load_model = (
+                                outputs.listeners[tracked_validation.id][metric_name]
+                                .tag("checkpoint", name)
+                                .tag("seed", seed)
+                                .tag("first_stage", retriever_tag)
                             )
-                            for metric_name in tracked_validation.monitored():
-                                load_model = (
-                                    current_outputs.listeners[tracked_validation.id][
-                                        metric_name
-                                    ]
-                                    .tag("checkpoint", name)
-                                    .tag("seed", seed)
-                                    .tag("first_stage", retriever_tag)
-                                )
-                                if cfg.phase2_training:
-                                    load_model.tag("phase", phase_num)
-                                for k, v in cfg_tags.items():
-                                    load_model.tag(k, v)
-                                model_id = f"{grid_search_id}{phase_prefix}-{name}-{metric_name}-{seed}"
-                                models_to_evaluate.append(
-                                    (model_id, load_model, name, current_model)
-                                )
-
-                    # 2. Last checkpoint
-                    elif mode == CheckpointSelection.LAST:
-                        logging.info(
-                            f"Adding last checkpoint for evaluation (Phase {phase_num})"
-                        )
-                        last_model = (
-                            current_outputs.learned_model.tag("checkpoint", "last")
-                            .tag("seed", seed)
-                            .tag("first_stage", retriever_tag)
-                        )
-                        if cfg.phase2_training:
-                            last_model.tag("phase", phase_num)
-
-                        for k, v in cfg_tags.items():
-                            last_model.tag(k, v)
-                        model_id = f"{grid_search_id}{phase_prefix}-last-{seed}"
-                        models_to_evaluate.append(
-                            (model_id, last_model, "last", current_model)
-                        )
-
-                    # 3. Specific epoch checkpoint
-                    elif isinstance(mode, int):
-                        target_epoch = mode
-                        logging.info(
-                            f"Adding checkpoint for epoch {target_epoch} for evaluation (Phase {phase_num})"
-                        )
-                        load_model = find_checkpoint(
-                            outputs=current_outputs,
-                            target_epoch=target_epoch,
-                            learner=current_learner,
-                        )
-                        load_model = (
-                            load_model.tag("checkpoint", f"epoch-{target_epoch}")
-                            .tag("seed", seed)
-                            .tag("first_stage", retriever_tag)
-                        )
-                        if cfg.phase2_training:
-                            load_model.tag("phase", phase_num)
-                        for k, v in cfg_tags.items():
-                            load_model.tag(k, v)
-                        model_id = (
-                            f"{grid_search_id}{phase_prefix}-epoch{target_epoch}-{seed}"
-                        )
-                        models_to_evaluate.append(
-                            (
-                                model_id,
-                                load_model,
-                                f"epoch-{target_epoch}",
-                                current_model,
+                            for k, v in cfg_tags.items():
+                                load_model.tag(k, v)
+                            model_id = f"{grid_search_id}-{name}-{metric_name}-{seed}"
+                            models_to_evaluate.append(
+                                (model_id, load_model, name, model)
                             )
+
+                # 2. Last checkpoint
+                elif mode == CheckpointSelection.LAST:
+                    logging.info("Adding last checkpoint for evaluation")
+                    last_model = (
+                        outputs.learned_model.tag("checkpoint", "last")
+                        .tag("seed", seed)
+                        .tag("first_stage", retriever_tag)
+                    )
+                    for k, v in cfg_tags.items():
+                        last_model.tag(k, v)
+                    model_id = f"{grid_search_id}-last-{seed}"
+                    models_to_evaluate.append((model_id, last_model, "last", model))
+
+                # 3. Specific epoch checkpoint
+                elif isinstance(mode, int):
+                    target_epoch = mode
+                    logging.info(
+                        f"Adding checkpoint for epoch {target_epoch} for evaluation"
+                    )
+                    load_model = find_checkpoint(
+                        outputs=outputs,
+                        target_epoch=target_epoch,
+                        learner=learner,
+                    )
+                    load_model = (
+                        load_model.tag("checkpoint", f"epoch-{target_epoch}")
+                        .tag("seed", seed)
+                        .tag("first_stage", retriever_tag)
+                    )
+                    for k, v in cfg_tags.items():
+                        load_model.tag(k, v)
+                    model_id = f"{grid_search_id}-epoch{target_epoch}-{seed}"
+                    models_to_evaluate.append(
+                        (
+                            model_id,
+                            load_model,
+                            f"epoch-{target_epoch}",
+                            model,
                         )
+                    )
 
             # Shared evaluation execution loop (Standard & PLAID)
             for model_id, load_model, label, eval_model in models_to_evaluate:
@@ -789,14 +506,6 @@ def TrainEvaluateMiceV2(
                     load_model.tag("plaid_retriever", False)
 
                 eval_init_tasks = [load_model]
-                if cfg.eval_sparsity:
-                    eval_init_tasks.append(
-                        InitEvalSparsityHook.C(
-                            scorer=eval_model,
-                            threshold=cfg.hard_prune_threshold,
-                        )
-                    )
-
                 all_weights.append(load_model)
 
                 tests.evaluate_retriever(
@@ -871,11 +580,6 @@ def TrainEvaluateMiceV2(
                         load_model.tag("first_stage", colbert_tag)
                         load_model.tag("plaid_retriever", "")
 
-                        # Precompute the ColBERT-style first-stage run once (same
-                        # pattern as the SPLADE precompute above) -- no model_id,
-                        # so it isn't registered as its own report row, exactly
-                        # like the SPLADE-alone run isn't either; the measures
-                        # are still computed and stored.
                         colbert_runs = tests.evaluate_retriever(
                             mice_plaid_factory.colbert_retriever,
                             launcher=launcher_evaluate,
@@ -892,13 +596,6 @@ def TrainEvaluateMiceV2(
                         # for the second stage reranker
                         load_model.tag("plaid_retriever", True)
 
-                        # Rerank of ColBERT-retrieved candidates via MICE's top
-                        # interaction layers -- reuses the cached run above (no
-                        # first-stage re-retrieval). build_indexes submits an
-                        # identical PlaidIndexBuilder config to the one above, so
-                        # it resolves to the same experimaestro task (no re-indexing).
-                        # We have to create a new factory here as it use different
-                        # first stage factory compare to previous one.
                         mice_colbert_rerank_factory = MicePlaidRetrieverFactory(
                             mice_model=eval_model,
                             first_stage_factory=colbert_run_retriever_factory,
