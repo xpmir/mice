@@ -5,7 +5,7 @@ library_name: sentence-transformers
 base_model: {{base}}
 model_name: {{model_id}}
 source: https://github.com/xpmir/cross-encoders
-paper: https://arxiv.org/abs/2602.16299
+paper: https://arxiv.org/abs/2610.31932
 tags:
 - cross-encoder
 - mice
@@ -19,10 +19,11 @@ pipeline_tag: text-classification
 
 # {{model_id}}
 
-[![Paper](https://img.shields.io/badge/Paper-Arxiv-red)](https://arxiv.org/abs/2602.16299)
+[![Paper](https://img.shields.io/badge/Paper-Arxiv-red)](https://arxiv.org/abs/2610.31932)
+[![Collection](https://img.shields.io/badge/%F0%9F%A4%97%20Hugging%20Face-Collection-yellow)](https://huggingface.co/collections/xpmir/mice)
 [![GitHub](https://img.shields.io/badge/GitHub-Code-blue)](https://github.com/xpmir/cross-encoders)
 
-This model is a **MICE** (Minimal Interaction Cross-Encoder) model based on `{{base}}` (ModernBERT backbone).
+This model is part of the [MICE Hugging Face collection](https://huggingface.co/collections/xpmir/mice). It is a **MICE** (Minimal Interaction Cross-Encoder) model based on `{{base}}` (ModernBERT backbone).
 
 MICE models separate query and document processing in the bottom layers, enabling independent document contextualization and faster re-ranking with cross-attention only in the top interaction layers.
 

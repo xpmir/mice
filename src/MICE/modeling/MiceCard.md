@@ -19,6 +19,7 @@ pipeline_tag: text-classification
 # {{model_id}}
 
 [![Paper](https://img.shields.io/badge/Paper-Arxiv-red)](https://arxiv.org/abs/2602.16299)
+[![Collection](https://img.shields.io/badge/%F0%9F%A4%97%20Hugging%20Face-Collection-yellow)](https://huggingface.co/collections/xpmir/mice)
 [![GitHub](https://img.shields.io/badge/GitHub-Code-blue)](https://github.com/xpmir/cross-encoders)
 
 This model is a **MICE** (Modular Interaction Cross-Encoder) based on `{{base}}`.
@@ -43,7 +44,21 @@ MICE models provide a modular architecture that separates query and document pro
 
 ## Usage
 
-This model uses the `xpmir` library for inference.
+### 1. With `sentence-transformers`
+
+All released models from the [xpmir/mice collection](https://huggingface.co/collections/xpmir/mice) can be used directly with `sentence-transformers`:
+
+```python
+from sentence_transformers import CrossEncoder
+
+model = CrossEncoder("xpmir/{{model_id}}", trust_remote_code=True)
+scores = model.predict([
+    ("What is the capital of France?", "Paris is the capital and most populous city of France.")
+])
+print(scores)
+```
+
+### 2. With `xpmir`
 
 ```python
 from xpm_torch.huggingface import TorchHFHub

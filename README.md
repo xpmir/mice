@@ -16,7 +16,9 @@
 </div>
 <br>
 
-[![Paper](https://img.shields.io/badge/Paper-Arxiv-red)](https://arxiv.org/abs/2602.16299)
+[![Paper (EMNLP 2026)](https://img.shields.io/badge/Paper-EMNLP%202026-red)](https://arxiv.org/abs/2602.16299)
+[![Paper (MICE-P)](https://img.shields.io/badge/Paper-MICE--P%20ArXiv-red)](https://arxiv.org/abs/2610.31932)
+[![Models (Hugging Face)](https://img.shields.io/badge/%F0%9F%A4%97%20Hugging%20Face-Collection-yellow)](https://huggingface.co/collections/xpmir/mice)
 [![GitHub](https://img.shields.io/badge/GitHub-Code-blue)](https://github.com/xpmir/mice)
 [![Fork of](https://img.shields.io/badge/Fork%20of-xpmir%2Fcross--encoders-lightgrey)](https://github.com/xpmir/cross-encoders)
 [![uv](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/astral-sh/uv/main/assets/badge/v0.json)](https://github.com/astral-sh/uv)
@@ -24,7 +26,7 @@
 
 </div>
 
-### 📄 Abstract (EMNLP2026)
+### 📄 Abstract (EMNLP 2026)
 
 > Cross-encoders deliver state-of-the-art ranking effectiveness in information retrieval, but have a high inference cost. This prevents them from being used as first-stage rankers, but also incurs a cost when re-ranking documents. Prior work has addressed this bottleneck from two largely separate directions: accelerating cross-encoder inference by sparsifying the attention process or improving first-stage retrieval effectiveness using more complex models, e.g. late-interaction ones.
 > In this work, we propose to bridge these two approaches, based on an in-depth understanding of the internal mechanisms of cross-encoders. Starting from cross-encoders, we show that it is possible to derive a new late-interaction-like architecture by carefully removing detrimental or unnecessary interactions. We name this architecture MICE (Minimal Interaction Cross-Encoders). We extensively evaluate MICE across both in-domain (ID) and out-of-domain (OOD) datasets.
@@ -36,7 +38,11 @@ Even without pre-computing document states, MICE consistently pushes the Pareto 
 | :---: | :---: |
 | <img src="Assets/Pareto_front.png" alt="Pareto Front FLOPs (EMNLP 2026)" width="500"/> | <img src="Assets/ParetoMiceP.png" alt="Practical application with ettin-reranker-data" width="550"/> |
 
-We also applied the [ettin-reranker training recipte](https://huggingface.co/blog/ettin-reranker) to MICE, allowing to compare with the recently released [LateOn](https://huggingface.co/lightonai/LateOn) ColBERT model (trained on roughly the same data). We also used [Fast-PLAID](https://github.com/lightonai/fast-plaid) to index and store the multi-vector representations produced by Mice - calling the full Pipeline MICE-P.
+### 📄 Abstract: MICE to Meet You — End-to-End Retrieval (arXiv:2610.31932)
+
+> Late-interaction models offer state-of-the-art efficiency-effectiveness trade-offs for neural retrieval by enabling document representations to be pre-computed and efficiently indexed. Yet, their relatively simple interaction mechanisms, typically MaxSim, can limit their effectiveness compared to cross-encoders. MICE, a recently introduced re-ranking architecture, aims to combine cross-encoder-like effectiveness through expressive transformer-based scoring with reduced inference-time computation through document-side pre-computation. However, no practical way to store these document representations was explored. We address this limitation here and introduce MICE-P, the first end-to-end retrieval pipeline with MICE, based on PLAID to index the contextualized document token representations. We conduct a controlled comparison of MICE, ColBERT and cross-encoders by training comparable models using the Ettin Family under matched experimental conditions. Our results show that MICE-P defines a new class of retrieval architecture with an efficiency-effectiveness trade-off of its own: it matches late-interaction retrieval throughput while retaining the effectiveness of cross-encoders.
+
+We also applied the [ettin-reranker training recipe](https://huggingface.co/blog/ettin-reranker) to MICE, allowing to compare with the recently released [LateOn](https://huggingface.co/lightonai/LateOn) ColBERT model (trained on roughly the same data). We also used [Fast-PLAID](https://github.com/lightonai/fast-plaid) to index and store the multi-vector representations produced by Mice - calling the full Pipeline MICE-P.
 
 To make document pre-computation practical, MICE-P introduces a 128-d projection bottleneck paired with PLAID ([Santhanam et al.](https://dl.acm.org/doi/10.1145/3511808.3557325)) residual compression. Candidate passages are retrieved via a fast first stage (SPLADEv3), decompressed, and scored via MICE interaction layers—preserving fine-grained cross-attention without full query-doc cross-encoding!
 
@@ -62,6 +68,28 @@ MICE splits transformer layers into two functional phases:
 
 ---
 
+## 🤗 Released Models
+
+All released checkpoints are available on Hugging Face in the **[xpmir/mice collection](https://huggingface.co/collections/xpmir/mice)**.
+
+All released models can be used directly through the [`sentence-transformers`](https://sbert.net/) library:
+
+```python
+from sentence_transformers import CrossEncoder
+
+# Load any released model from the collection
+model = CrossEncoder("xpmir/<model-name>", trust_remote_code=True)
+
+# Predict relevance scores for query-document pairs
+scores = model.predict([
+    ("What is MICE?", "MICE stands for Minimal Interaction Cross-Encoders for efficient neural ranking."),
+    ("What is MICE?", "Paris is the capital of France.")
+])
+print(scores)
+```
+
+---
+
 
 ## 👨‍💻 Package Overview
 
@@ -72,6 +100,7 @@ Built upon the [Experimaestro](https://github.com/experimaestro/experimaestro-py
 - **MICE Architecture**: Decoupled query and document contextualization in bottom layers ($l_X$), followed by cross-attention interaction only in top layers ($l_Y$).
 - **Attention Bias & Masking**: Lexical and structural attention biasing to eliminate unnecessary cross-attention operations without accuracy drop.
 - **Document State Pre-computation & PLAID**: Offline indexing of document contextualized tokens via PLAID, enabling ColBERT-like retrieval speeds with Cross-Encoder scoring power.
+- **Released Models**: Pre-trained model weights available in the [Hugging Face collection](https://huggingface.co/collections/xpmir/mice), compatible with `sentence-transformers`.
 - **Complete Paper Reproducibility**: End-to-end experiment pipelines for EMNLP 2026 (`experiments/emnlp26`) and MICE-P (`experiments/micep`).
 
 
@@ -119,6 +148,7 @@ This repository uses [`uv`](https://docs.astral.sh/uv/) for fast, deterministic 
 Experiment YAML configurations are organized in `experiments/`:
 
 ### 1. EMNLP 2026 Experiments (`experiments/emnlp26/`)
+[![Paper (EMNLP 2026)](https://img.shields.io/badge/Paper-EMNLP%202026-red)](https://arxiv.org/abs/2602.16299)
 
 | Configuration | Description |
 |---|---|
@@ -134,6 +164,7 @@ Experiment YAML configurations are organized in `experiments/`:
 | [`baselines/`](experiments/emnlp26/baselines/) | PreTTR, ColBERT, and standard Cross-Encoder comparative baselines |
 
 ### 2. MICE-P Experiments (`experiments/micep/`)
+ [![Paper (MICE-P)](https://img.shields.io/badge/Paper-MICE--P%20ArXiv-red)](https://arxiv.org/abs/2610.31932)
 
 | Configuration | Description |
 |---|---|
@@ -159,17 +190,31 @@ uv run experimaestro run experiments/emnlp26/mice_MiniLM_l8+3_bias.yaml
 
 ## 📑 Citation
 
-If you find MICE or this codebase useful, please cite our paper:
+If you find MICE or this codebase useful, please cite our papers:
 
 ```bibtex
-@misc{vast2026miceminimalinteractioncrossencoders,
-      title={MICE: Minimal Interaction Cross-Encoders for efficient Re-ranking},
-      author={Mathias Vast and Victor Morand and Josiane Mothe and Benjamin Piwowarski},
+@inproceedings{vast-etal-2026-mice,
+    title = "{MICE}: Minimal Interaction Cross-Encoders for efficient Re-ranking",
+    author = "Vast, Mathias  and Morand, Victor  and Mothe, Josiane  and Piwowarski, Benjamin",
+    editor = "Lee, Hung-Yi  and Dev, Sunipa  and Li, Jessy  and Elliott, Desmond",
+    booktitle = "Proceedings of the 2026 Conference on Empirical Methods in Natural Language Processing",
+    month = oct,
+    year = "2026",
+    address = "Budapest, Hungary",
+    publisher = "Association for Computational Linguistics",
+    url = "https://aclanthology.org/2026.emnlp-main.1736/",
+    pages = "39612--39628",
+    ISBN = "979-8-89176-459-0",
+}
+
+@misc{morand2026micetomeetyou,
+      title={MICE to Meet You: From Re-ranking Only to End-to-End Retrieval},
+      author={Victor Morand and Yuxuan Zong and Mathias Vast and Josiane Mothe and Benjamin Piwowarski},
       year={2026},
-      eprint={2602.16299},
+      eprint={2610.31932},
       archivePrefix={arXiv},
       primaryClass={cs.IR},
-      url={https://arxiv.org/abs/2602.16299},
+      url={https://arxiv.org/abs/2610.31932},
 }
 ```
 
