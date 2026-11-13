@@ -56,6 +56,25 @@ class Losses(str, Enum):
     pearson_mixedbread_large = "pearson_mixedbread_large"
     """Pearson correlation loss (1 - r) across batch pairs on cross-encoder/ettin-reranker-v1-data teacher scores"""
 
+    MSE_lighton_multilingual = "MSE_lighton_multilingual"
+    """Plain pointwise MSE loss on the rerank_scores (mxbai-rerank-large-v2 teacher, as
+    for MSE_mixedbread_large) of the lightonai/embeddings-fine-tuning-filtered-<lang>
+    translated splits, each batch drawn from a single split (LightOn's recipe)"""
+
+
+class ExhaustedSplit(str, Enum):
+    """What the LightOn split sampler does with a split once all its pairs were read"""
+
+    REPLAY = "replay"
+    """Read the split again in the same order (MICE-P's behaviour)"""
+
+    RESHUFFLE = "reshuffle"
+    """Read the split again in a new, reseeded order (LightOn's behaviour)"""
+
+
+LIGHTON_LANGUAGES = ("en", "fr", "es", "it", "de", "pt")
+"""Languages of the LightOn translated training splits (mMICE-P)"""
+
 
 class PoolingMethod(str, Enum):
     """Possible pooling methods"""
@@ -437,6 +456,17 @@ class CE_FineTuning(RerankerMSMarcoV1Configuration):
 
     ettin_subset_exclude: List[str] = field(factory=list)
     """The subset config names of cross_encoder.ettin_reranker_v1_data to exclude from training"""
+
+    lighton_languages: List[str] = field(factory=lambda: list(LIGHTON_LANGUAGES))
+    """Languages of the LightOn training splits (loss MSE_lighton_multilingual)"""
+
+    lighton_alpha: GridSearch[float] = 1.0
+    """Each batch comes from one LightOn split, chosen with probability proportional
+    to len(split) ** alpha (loss MSE_lighton_multilingual)"""
+
+    lighton_exhausted_split: GridSearch[str] = ExhaustedSplit.REPLAY.value
+    """What to do with an exhausted LightOn split: 'replay' (same order, MICE-P,
+    default) or 'reshuffle' (new order, LightOn) (loss MSE_lighton_multilingual)"""
 
     indexation: Indexation = Factory(Indexation)
     retrieval: Retrieval = Factory(Retrieval)

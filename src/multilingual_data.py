@@ -21,11 +21,12 @@ from datamaestro_ir.data.lighton import EmbeddingsFineTuningPointwiseSamples
 from experimaestro import Param, Task, pathgenerator
 from experimaestro.launcherfinder import find_launcher
 
+from configuration import LIGHTON_LANGUAGES
 from samplers import prepare_collection
 
 logger = logging.getLogger(__name__)
 
-LANGUAGES = ("en", "fr", "es", "it", "de", "pt")
+LANGUAGES = LIGHTON_LANGUAGES
 """Training languages (brief: decisions already taken)."""
 
 SOURCES = ("fever", "fiqa", "hotpotqa", "msmarco", "nq", "squadv2", "trivia")

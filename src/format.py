@@ -15,6 +15,7 @@ loss_names = {
     "ADR_MSE": "ADR-MSE",
     "MSE_mixedbread_large": "MSE (mixedbread-large)",
     "pearson_mixedbread_large": "Pearson (mixedbread-large)",
+    "MSE_lighton_multilingual": "MSE (LightOn multilingual)",
 }
 
 backbone_names = {
