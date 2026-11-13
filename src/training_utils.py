@@ -356,6 +356,29 @@ def build_trainer(cfg: CE_FineTuning) -> LossTrainer:
             batch_size=cfg.learner.optimization.batch_size,
         )
 
+    elif loss_member is Losses.MSE_lighton_multilingual:
+        # LightOn translated splits, one split per batch (mmicep_brief.md, step 3)
+        from lighton_sampler import build_lighton_trainer
+        from multilingual_data import build_lighton_pointwise_splits
+
+        splits = build_lighton_pointwise_splits(
+            tuple(cfg.lighton_languages),
+            seed=getattr(cfg, "seed", 42),
+            requirements=cfg.preprocessing.requirements,
+            download=True,
+        )
+
+        # Same loss as MSE_mixedbread_large (same teacher, mxbai-rerank-large-v2)
+        scorer_type = getattr(cfg, "scorer_type", ScorerType.stCrossEncoder.value)
+        if isinstance(scorer_type, ScorerType):
+            scorer_type = scorer_type.value
+        if scorer_type == ScorerType.stMultiVectorEncoder.value:
+            lossfn = PointwiseMSELoss.C(teacher_scale=0.02, teacher_bias=0.70)
+        else:
+            lossfn = PointwiseMSELoss.C()
+
+        return build_lighton_trainer(cfg, lossfn, splits)
+
     else:
         raise NotImplementedError(
             f"Loss function {cfg.learner.loss} is not implemented yet."
