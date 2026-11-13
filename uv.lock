@@ -384,13 +384,14 @@ nvtx = [
 
 [[package]]
 name = "datamaestro"
-version = "1.16.1"
+version = "1.18.1"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "bitmath", marker = "sys_platform == 'darwin' or sys_platform == 'linux'" },
     { name = "cached-property", marker = "sys_platform == 'darwin' or sys_platform == 'linux'" },
     { name = "click", marker = "sys_platform == 'darwin' or sys_platform == 'linux'" },
     { name = "docstring-parser", marker = "sys_platform == 'darwin' or sys_platform == 'linux'" },
+    { name = "ds-cache-cleaner", marker = "sys_platform == 'darwin' or sys_platform == 'linux'" },
     { name = "experimaestro", marker = "sys_platform == 'darwin' or sys_platform == 'linux'" },
     { name = "filelock", marker = "sys_platform == 'darwin' or sys_platform == 'linux'" },
     { name = "idna", marker = "sys_platform == 'darwin' or sys_platform == 'linux'" },
@@ -403,15 +404,14 @@ dependencies = [
     { name = "tqdm", marker = "sys_platform == 'darwin' or sys_platform == 'linux'" },
     { name = "urllib3", marker = "sys_platform == 'darwin' or sys_platform == 'linux'" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/e2/eb/4c1a6eb687a6cb2d338ffb3c21a40d9110c16103de2aa4e500754e37e908/datamaestro-1.16.1.tar.gz", hash = "sha256:d87b6407320d733d7ebf960664f50a192f577ede04e2f27964ee6381a1377fff", size = 286100, upload-time = "2026-10-19T14:02:39.107Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/60/94/30e476c5648650362cdf1cbbcabb92c26756008341f64e189a3a76c5de35/datamaestro-1.18.1.tar.gz", hash = "sha256:174b7db96275249dc63418dc73a0261256de56112a08ead4edb98fac6ad6769a", size = 392515, upload-time = "2026-11-03T15:29:40.372Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/e3/a4/def2e27b8d633390437c57b7b418267209a84ee827fa14d857398afa64c3/datamaestro-1.16.1-py3-none-any.whl", hash = "sha256:1f62d266082d586cc3e4165fe38356e74b469f4787f3934836e75962f0e8e03f", size = 150649, upload-time = "2026-10-19T14:02:37.561Z" },
+    { url = "https://files.pythonhosted.org/packages/fa/3c/d9875ee890920892cbb8816840c002e7c5d44b1d70968a7e240f8fa5bba9/datamaestro-1.18.1-py3-none-any.whl", hash = "sha256:81f8c56d7af00d2da8faba11987b6909c057463c2cff9140fb27b5df7d0de94b", size = 185895, upload-time = "2026-11-03T15:29:38.8Z" },
 ]
 
 [[package]]
 name = "datamaestro-ir"
-version = "0.5.0"
-source = { registry = "https://pypi.org/simple" }
+source = { editable = "../datamaestro_ir" }
 dependencies = [
     { name = "attrs", marker = "sys_platform == 'darwin' or sys_platform == 'linux'" },
     { name = "datamaestro", marker = "sys_platform == 'darwin' or sys_platform == 'linux'" },
@@ -420,9 +420,35 @@ dependencies = [
     { name = "lxml", marker = "sys_platform == 'darwin' or sys_platform == 'linux'" },
     { name = "typing-extensions", marker = "sys_platform == 'darwin' or sys_platform == 'linux'" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/e7/50/a7ddb07073dbf6c9bb70392c48932af78ca7104c6345a1cfdc92b2f92e69/datamaestro_ir-0.5.0.tar.gz", hash = "sha256:16aee9de86cd227d188f4553a3d342cec2ef70cfad214cdff41ac46a9e14a149", size = 91436, upload-time = "2026-10-19T14:08:01.261Z" }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/20/f9/51475ce9e162a59cba7d09af6445de61fb06271d961e2329b4ef315ac3ab/datamaestro_ir-0.5.0-py3-none-any.whl", hash = "sha256:70439e864d0c3091a08e6c7a316f626e1683a82a9071b4ad1640bb1ee39bba45", size = 127609, upload-time = "2026-10-19T14:07:59.89Z" },
+
+[package.metadata]
+requires-dist = [
+    { name = "attrs" },
+    { name = "datamaestro", specifier = ">=1.17.1" },
+    { name = "datasets", marker = "extra == 'huggingface'" },
+    { name = "experimaestro", specifier = ">=2.0.0" },
+    { name = "impact-index", specifier = ">=1.3.1" },
+    { name = "lxml" },
+    { name = "pandas", marker = "extra == 'parquet'" },
+    { name = "pyarrow", marker = "extra == 'parquet'" },
+    { name = "typing-extensions" },
+]
+provides-extras = ["huggingface", "parquet"]
+
+[package.metadata.requires-dev]
+dev = [
+    { name = "docutils", specifier = ">=0.21.2" },
+    { name = "git-cliff", specifier = ">=2.11.0" },
+    { name = "pandas" },
+    { name = "pyarrow" },
+    { name = "pytest", specifier = ">=8.4.1" },
+    { name = "ruff", specifier = ">=0.8" },
+    { name = "sphinx", specifier = ">=7" },
+    { name = "sphobjinv", specifier = ">=2.3.1.3" },
+]
+docs = [
+    { name = "datamaestro", extras = ["docs"] },
+    { name = "sphinx-rtd-theme", specifier = ">=3.1.0" },
 ]
 
 [[package]]
@@ -493,6 +519,21 @@ source = { registry = "https://pypi.org/simple" }
 sdist = { url = "https://files.pythonhosted.org/packages/ae/b6/03bb70946330e88ffec97aefd3ea75ba575cb2e762061e0e62a213befee8/docutils-0.22.4.tar.gz", hash = "sha256:4db53b1fde9abecbb74d91230d32ab626d94f6badfc575d6db9194a49df29968", size = 2291750, upload-time = "2025-12-18T19:00:26.443Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/02/10/5da547df7a391dcde17f59520a231527b8571e6f46fc8efb02ccb370ab12/docutils-0.22.4-py3-none-any.whl", hash = "sha256:d0013f540772d1420576855455d050a2180186c91c15779301ac2ccb3eeb68de", size = 633196, upload-time = "2025-12-18T19:00:18.077Z" },
+]
+
+[[package]]
+name = "ds-cache-cleaner"
+version = "0.4.1"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "click", marker = "sys_platform == 'darwin' or sys_platform == 'linux'" },
+    { name = "pydantic", marker = "sys_platform == 'darwin' or sys_platform == 'linux'" },
+    { name = "rich", marker = "sys_platform == 'darwin' or sys_platform == 'linux'" },
+    { name = "textual", marker = "sys_platform == 'darwin' or sys_platform == 'linux'" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/0d/dd/bd4bb25fec7336be47006a7e50165ec9d4c7ec38e046da178018c9fcfe62/ds_cache_cleaner-0.4.1.tar.gz", hash = "sha256:3f42c9150e5a4c5f82653ca880d5f177fa6dd4c5b703277f6f59cedae1d8cc18", size = 22968, upload-time = "2026-11-01T12:34:29.377Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/5b/72/f52a32ba537db4c498d88caaba6846d687aae8c35441f2ef89264543a600/ds_cache_cleaner-0.4.1-py3-none-any.whl", hash = "sha256:7c5d81207f34a586190d9c0e72e9f59aebc24da0f6c020a280700fca4391fdf7", size = 28449, upload-time = "2026-11-01T12:34:27.928Z" },
 ]
 
 [[package]]
@@ -1280,7 +1321,7 @@ docs = [
 requires-dist = [
     { name = "accelerate", specifier = ">=1.13.0" },
     { name = "datamaestro" },
-    { name = "datamaestro-ir" },
+    { name = "datamaestro-ir", editable = "../datamaestro_ir" },
     { name = "datasets", specifier = ">=5.0.0" },
     { name = "experimaestro", git = "https://github.com/experimaestro/experimaestro-python.git" },
     { name = "experimaestro-ir", extras = ["neural"], git = "https://github.com/experimaestro/experimaestro-ir.git?tag=v1.5.0" },
