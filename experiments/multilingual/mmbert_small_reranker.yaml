@@ -1,0 +1,31 @@
+id: train_mmbert_small_reranker
+title: "mMICE-P-130m: mmBERT-small multilingual reranker"
+description:
+    Multilingual cross-encoder distilled from mxbai-rerank-large-v2 on the LightOn translated
+    splits (EN, FR, ES, IT, DE, PT). Starting checkpoint of mMICE-P-130m, the multilingual
+    equivalent of cross-encoder/ettin-reranker-*-v1.
+
+parent: ../micep/_common.yaml
+module: cross_encoders_training.experiment
+export_trained_models: true
+nb_repetitions: 2
+
+base: jhu-clsp/mmBERT-small
+scorer_type: stCrossEncoder
+
+# Training settings of ../micep/_ettin68m.yaml (through _common_mice_v3.yaml), on the multilingual data
+learner:
+    loss: MSE_lighton_multilingual
+    validation: nanobeir11_multilingual
+    optimization:
+        max_epochs: 6000
+        num_warmup_steps: 20000
+        batch_size: 256
+        lr: 3e-5
+        re_no_l2_regularization: ['\.bias$', '(?i)norm']
+    requirements: duration=20h & cpu(cores=16, mem=10G) & cuda(mem=50G) * 2
+
+evaluation:
+    in_domain: false
+    datasets:
+        - miracl # EN, ES, FR, DE (dev)

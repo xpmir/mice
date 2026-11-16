@@ -11,7 +11,7 @@ from xpmir.letor.validation import AggregatorValidationListener, ValidationListe
 from xpmir.evaluation import Evaluations, EvaluationsCollection
 from xpmir.rankers import scorer_retriever
 
-from configuration import CE_FineTuning, Validation
+from configuration import CE_FineTuning, LIGHTON_LANGUAGES, Validation
 from tests import NANO_BEIR_KEYS, CE_MEASURES
 
 import logging
@@ -86,6 +86,42 @@ def nanobeir11_validation_datasets(
     return random_folds, documents
 
 
+NANO_BEIR11_EXCLUDED = ("nano_arguana", "nano_webis-touche2020")
+
+
+@lru_cache
+def nanobeir11_multilingual_validation_datasets(
+    cfg: ValidationSample, launcher=None, blocking: Optional[bool] = None
+):
+    """Return validations over NanoBEIR11 (no arguana, no touche) translated in
+    each of the six LightOn training languages, keyed by ``<dataset>_<lang>``."""
+    random_folds = {}
+    documents = {}
+
+    for lang in LIGHTON_LANGUAGES:
+        for dataset_name, dataset_id in NANO_BEIR_KEYS.items():
+            if dataset_name in NANO_BEIR11_EXCLUDED:
+                continue
+            name = f"{dataset_name}_{lang}"
+            dataset = prepare_collection(f"{dataset_id}.{lang}", download=blocking)
+            logger.info(f"Loaded: {name}")
+
+            random_folds[name] = RandomFold.C(
+                dataset=dataset,
+                seed=cfg.seed,
+                fold=0,
+                sizes=[cfg.size],
+            ).submit(launcher=launcher)
+            documents[name] = dataset.documents
+
+            # Force load documents, queries, and qrels (as for NanoBEIR)
+            _ = next(dataset.documents.iter_documents())
+            _ = next(dataset.topics.iter())
+            if hasattr(dataset, "assessments"):
+                _ = dataset.assessments.iter()
+    return random_folds, documents
+
+
 @configuration()
 class ValidationSet:
     cfg: CE_FineTuning
@@ -111,6 +147,12 @@ class ValidationSet:
                 items.append((name, validations[name], documents[name]))
         elif cfg.learner.validation == Validation.NanoBEIR11.value:
             validations, documents = nanobeir11_validation_datasets(
+                cfg.validation, launcher=launcher, blocking=blocking
+            )
+            for name in validations:
+                items.append((name, validations[name], documents[name]))
+        elif cfg.learner.validation == Validation.NanoBEIR11Multilingual.value:
+            validations, documents = nanobeir11_multilingual_validation_datasets(
                 cfg.validation, launcher=launcher, blocking=blocking
             )
             for name in validations:
@@ -182,6 +224,16 @@ class ValidationSet:
             )
             listeners.append(aggregator)
             tracked_validations["nano-beir"] = aggregator
+
+        if self.cfg.learner.validation == Validation.NanoBEIR11Multilingual.value:
+            aggregator = AggregatorValidationListener.C(
+                listeners=listeners,
+                id="aggregated_validation",
+                validation_interval=self.cfg.learner.validation_interval,
+                metrics={"nDCG": True, "RR@10": False},
+            )
+            listeners.append(aggregator)
+            tracked_validations["nano-beir-multilingual"] = aggregator
 
         if self.cfg.learner.validation in [
             Validation.MSMARCO.value,

@@ -1,0 +1,36 @@
+id: train_mmicep_130m_l12+4
+title: "mMICE-P-130m Training"
+description:
+    Phase 1 of mMICE-P-130m (l12+4), from the mmBERT-small multilingual reranker.
+    Mirrors ../micep/micev2_ettin_150m_l12+4_v3.yaml
+parent: ../micep/_common_mice_v3.yaml
+export_trained_models: true
+
+learner:
+    loss: MSE_lighton_multilingual
+    validation: nanobeir11_multilingual
+    optimization:
+        max_epochs: 5000
+        num_warmup_steps: 20000
+        lr: 1.5e-5
+        batch_size: 192
+    requirements: duration=20h & cpu(cores=16, mem=10G) & cuda(mem=50G) * 4
+
+nb_repetitions: 2
+
+# TODO: path of the model exported by train_mmbert_small_reranker
+# (<workspace>/experiments/train_mmbert_small_reranker/<run>/results/models/<name>)
+base: TODO/path/to/train_mmbert_small_reranker/results/models/cross-encoder-mmBERT-small
+n_contextualization_layers: 12 # mmBERT-small has 22 layers, as ettin-150m
+n_interaction_layers: 4
+
+evaluation:
+    eval_checkpoint: "last"
+    in_domain: false
+    datasets:
+        - miracl # EN, ES, FR, DE (dev)
+
+grid_search:
+    learner.optimization.lr:
+                        - 1.5e-5
+                        - 5e-5

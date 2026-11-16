@@ -1,0 +1,13 @@
+id: train_mmbert_small_reranker_abl_exhausted_split
+title: "mMICE-P-130m: exhausted split ablation"
+description:
+    Same as the mmBERT-small reranker, comparing what the sampler does with a split read
+    to the end. replay reads it again in the same order (MICE-P), reshuffle in a new order (LightOn).
+
+parent: ./mmbert_small_reranker.yaml
+export_trained_models: false
+
+grid_search:
+    lighton_exhausted_split:
+        - replay
+        - reshuffle

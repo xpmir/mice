@@ -266,6 +266,19 @@ ROBUST04_KEYS = {
     "robust04": "gov.nist.trec.adhoc.robust.2004.withstore",
 }
 
+# Multilingual evaluation sets (mMICE-P, mmicep_brief.md)
+MIRACL_LANGUAGES = ["en", "es", "fr", "de"]
+MIRACL_KEYS = {
+    f"miracl_{lang}": f"io.github.project-miracl.{lang}.dev"
+    for lang in MIRACL_LANGUAGES
+}
+
+MLDR_LANGUAGES = ["en", "es", "fr", "de", "it", "pt"]
+MLDR_KEYS = {
+    f"mldr_{lang}": f"co.huggingface.datasets.mldr.{lang}.test"
+    for lang in MLDR_LANGUAGES
+}
+
 
 # -----------------------------------------------------------------------------
 # Lazy Dataset Specification & Registry
@@ -547,6 +560,8 @@ test_registry.register_dict(
     aliases_map={"limit_small": ["limit-small"]},
 )
 test_registry.register_dict(ROBUST04_KEYS)
+test_registry.register_dict(MIRACL_KEYS)
+test_registry.register_dict(MLDR_KEYS)
 
 # 2. Register aggregations directly from the dictionary keys
 test_registry.register_aggregation(
@@ -584,6 +599,16 @@ test_registry.register_aggregation(
     "robust04",
     ["robust04"],
     display_name="Robust04",
+)
+test_registry.register_aggregation(
+    "miracl",
+    list(MIRACL_KEYS.keys()),
+    display_name="MIRACL",
+)
+test_registry.register_aggregation(
+    "mldr",
+    list(MLDR_KEYS.keys()),
+    display_name="MLDR",
 )
 test_registry.register_aggregation(
     "minified",

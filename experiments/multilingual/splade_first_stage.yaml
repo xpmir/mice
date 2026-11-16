@@ -1,0 +1,20 @@
+id: eval_splade_first_stage_miracl
+title: "mMICE-P-130m: SPLADE-v3 first-stage ceiling"
+description:
+    First stage alone (no reranker) on the multilingual evaluation sets,
+    recall@100 and nDCG@10. These are the candidates re-ranked by the mMICE-P-130m models.
+
+parent: ../micep/_common_eval.yaml
+module: Evaluation.experiment
+pre_experiment: pre_experiment
+
+# First stage: splade-v3, top-100 (retrieval.k inherited)
+retriever: naver/splade-v3-distilbert
+
+include_recall_100: true
+save_runs: true
+
+evaluation:
+    in_domain: false
+    datasets:
+        - miracl # EN, ES, FR, DE (dev). MLDR is registered too ("mldr"), not evaluated for the moment

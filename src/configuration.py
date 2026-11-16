@@ -152,6 +152,10 @@ class Validation(str, Enum):
     ALL = "all"
     """ Both Nano MSMARCO and NanoBEIR validations"""
 
+    NanoBEIR11Multilingual = "nanobeir11_multilingual"
+    """NanoBEIR11 (no arguana, no touche-2020) in each of the six LightOn training
+    languages (lightonai/nanobeir-multilingual), for mMICE-P"""
+
 
 @configuration()
 class Indexation(LauncherSpecification):

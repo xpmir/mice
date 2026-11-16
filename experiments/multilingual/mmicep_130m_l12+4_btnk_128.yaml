@@ -1,0 +1,47 @@
+id: train_mmicep_130m_l12+4_plaid_128
+title: "mMICE-P-130m Training"
+description:
+    Phase 2 of mMICE-P-130m (l12+4), 128-d document bottleneck on top of phase 1.
+    Mirrors ../micep/micev2_ettin_150m_l12+4_btnk_128.yaml
+parent: ../micep/_common_mice_v3.yaml
+nb_repetitions: 2
+export_trained_models: true
+pre_experiment: ""
+
+from_experiment: train_mmicep_130m_l12+4
+doc_bottleneck_dim: 128
+freeze_bottom_layers_phase1: true
+freeze_top_layers: false
+
+learner:
+    loss: MSE_lighton_multilingual
+    validation: nanobeir11_multilingual
+    optimization:
+        max_epochs: 5000
+        num_warmup_steps: 20000
+        lr: 1.5e-5
+        batch_size: 256
+    requirements: duration=20h & cpu(cores=16, mem=10G) & cuda(mem=50G) * 4
+
+# TODO: same path as in mmicep_130m_l12+4.yaml
+base: TODO/path/to/train_mmbert_small_reranker/results/models/cross-encoder-mmBERT-small
+n_contextualization_layers: 12
+n_interaction_layers: 4
+
+# FastPLAID evaluation on top of the splade-v3 first stage
+use_plaid: true
+plaid:
+    n_bits: 4
+
+evaluation:
+    eval_checkpoint:
+        - last
+        - best
+    in_domain: false
+    datasets:
+        - miracl # EN, ES, FR, DE (dev)
+
+grid_search:
+    learner.optimization.lr:
+                        - 1.5e-5
+                        - 5e-5

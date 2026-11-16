@@ -22,8 +22,9 @@ class TestRegistryResolution:
     """Test resolution of dataset names, aliases, and aggregations."""
 
     def test_registered_dataset_count(self):
-        # 3 in-domain + 13 beir + 13 beir_decontaminated + 5 lotte + 13 nano_beir + 2 limit + 1 robust04 = 50
-        assert len(test_registry._datasets) == 50
+        # 3 in-domain + 13 beir + 13 beir_decontaminated + 5 lotte + 13 nano_beir + 2 limit + 1 robust04
+        # + 4 miracl + 6 mldr = 60
+        assert len(test_registry._datasets) == 60
 
     def test_resolve_individual_dataset(self):
         assert test_registry.resolve_names("fiqa") == ["fiqa"]
