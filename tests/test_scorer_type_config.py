@@ -186,6 +186,26 @@ def test_build_st_multivector_encoder_meanmaxsim_for_mse_loss():
     assert scorer_override.similarity_fn_name == "maxsim"
 
 
+def test_build_st_multivector_encoder_meanmaxsim_for_lighton_loss():
+    from configuration import Losses
+
+    # MSE_lighton_multilingual uses the same teacher calibration as
+    # MSE_mixedbread_large, so it defaults to meanmaxsim too
+    cfg = CE_FineTuning(base="cross-encoder/ms-marco-MiniLM-L-6-v2")
+    cfg.learner.loss = Losses.MSE_lighton_multilingual.value
+    scorer, _ = build_STMultiVectorEncoder(cfg)
+    assert scorer.similarity_fn_name == "meanmaxsim"
+
+    # Explicit meanmaxsim/maxsim override works with the lighton loss
+    for name in ("meanmaxsim", "maxsim"):
+        cfg_override = CE_FineTuning(
+            base="cross-encoder/ms-marco-MiniLM-L-6-v2", similarity_fn_name=name
+        )
+        cfg_override.learner.loss = Losses.MSE_lighton_multilingual.value
+        scorer_override, _ = build_STMultiVectorEncoder(cfg_override)
+        assert scorer_override.similarity_fn_name == name
+
+
 def test_build_trainer_pointwise_mse_scaling(monkeypatch):
     from configuration import Losses
     import training_utils

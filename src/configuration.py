@@ -443,7 +443,7 @@ class CE_FineTuning(RerankerMSMarcoV1Configuration):
     """Type of scorer model: stCrossEncoder, stMultiVectorEncoder, or hfCrossScorer"""
 
     similarity_fn_name: Optional[str] = field(default=None)
-    """Similarity function for multi-vector scorer ('maxsim' or 'meanmaxsim'). When None, defaults to 'meanmaxsim' for MSE_mixedbread_large / pearson_mixedbread_large and 'maxsim' otherwise."""
+    """Similarity function for multi-vector scorer ('maxsim' or 'meanmaxsim'). When None, defaults to 'meanmaxsim' for MSE_mixedbread_large / pearson_mixedbread_large / MSE_lighton_multilingual and 'maxsim' otherwise. An explicit value always wins, so 'meanmaxsim' can be set with any loss."""
 
     pearson_eps: float = field(default=1e-6)
     """Numerical stability epsilon for Pearson correlation loss to prevent zero-variance collapse."""
