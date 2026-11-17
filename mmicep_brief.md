@@ -70,3 +70,77 @@ Keep every value as close as possible to the MICE-P configs. Ignore comments in 
 
 ## Step 6: review gate
 Show me the full diff and a short summary of what changed per file, then wait. No commit, no push.
+
+---
+
+# Progress log (status on 2026-11-16)
+
+**Restart point: step 5, dry runs.** Steps 1 to 4 are committed. Step 5 is partly done: the tests exist and pass, one dry run passed, one was cut off, three were not run.
+
+## Commits on `multilingual-mice`
+| Commit | Content | On `github` remote |
+|---|---|---|
+| `10d026c` | step 1, training splits | yes |
+| `ea115b7` | step 2, configuration surface | yes |
+| `9c2ea27` | step 3, single-split batch sampler | yes |
+| `2032181` | `meanmaxsim` default for `MSE_lighton_multilingual` on multi-vector scorers | **no** |
+| `a6d30a6` | step 4, experiment configs | **no** |
+
+The last two are local only: `git push github multilingual-mice` fails in the agent session (no GitHub credentials). It has to be run from a terminal with a working login.
+
+## Decisions taken since the brief was written
+- `n_bits`: start with 4.
+- Layer split for mMICE-P-130m: 12 + 4 (mmBERT-small has 22 layers, like ettin-150m).
+- Evaluation is limited to **MIRACL only** for the moment (EN, ES, FR, DE, dev). MLDR (test split) is registered in `src/tests.py` as `mldr` but no config uses it.
+- Validation: new option `nanobeir11_multilingual`, NanoBEIR11 in the six languages (66 sets).
+- Reranker `max_epochs`: 6000 (effective `_ettin68m` value).
+- Exhausted splits: `replay` is the default; one ablation config compares it with `reshuffle`, on the reranker.
+- Config names carry no `eX_` prefix.
+- Phase 1 and phase 2 `base`: explicit path, currently a `TODO/path/...` placeholder. It must be replaced with the folder of the model exported by `train_mmbert_small_reranker` (`<workspace>/experiments/train_mmbert_small_reranker/<run>/results/models/<name>`). Pushing the reranker to a private Hub repo was discussed and postponed.
+
+## Configs (`experiments/multilingual/`)
+| File | Experiment id | Dry run |
+|---|---|---|
+| `splade_first_stage.yaml` | `eval_splade_first_stage_miracl` | passed |
+| `mmbert_small_reranker.yaml` | `train_mmbert_small_reranker` | cut off by a 50 min limit while loading the last LightOn split; trainer not planned yet |
+| `mmbert_small_reranker_abl_exhausted_split.yaml` | `train_mmbert_small_reranker_abl_exhausted_split` | not run |
+| `mmicep_130m_l12+4.yaml` | `train_mmicep_130m_l12+4` | not run, needs the real `base` path |
+| `mmicep_130m_l12+4_btnk_128.yaml` | `train_mmicep_130m_l12+4_plaid_128` | not run, needs the real `base` path and the phase 1 experiment |
+
+## How the dry runs were launched on the lab machine (`zz`)
+Use the separate environment `~/venvs/mice-multilingual`. Two local obstacles needed scratch files, which may have been deleted since (the scratchpad is not durable); recreate them if so.
+
+1. `~/.config/experimaestro/launchers.py` rejects the cluster-sized requirements of the MICE-P configs. A temporary config directory was used, with:
+   - `launchers.py`: `find_launcher(requirements, tags=set())` returning `DirectLauncher(connector=LocalConnector.instance())`
+   - `settings.yaml`: one workspace pointing to a scratch directory
+2. The MIRACL document stores are not built on this machine, and the training experiments open every evaluation corpus at planning time. An override file was used:
+   ```yaml
+   evaluation:
+       datasets:
+           - nano_nq
+   preprocessing:
+       blocking_download: true
+   ```
+
+Command (with `$S` the directory holding those files):
+```
+HF_HOME=/home/vast/.cache/huggingface \
+~/venvs/mice-multilingual/bin/experimaestro run-experiment --run-mode dry_run \
+  --xpm-config-dir $S/xpmcfg --workdir $S/xpm-dryrun \
+  --pre-yaml $S/dry_override.yaml \
+  experiments/multilingual/mmbert_small_reranker.yaml
+```
+`splade_first_stage.yaml` needs neither the override file nor MIRACL data. Lists cannot be overridden with `-c` (they arrive as strings); use `--pre-yaml`.
+
+## Known issues to handle before the real runs
+- **Set `HF_HOME` on `zz`** (found 2026-11-17). The machine sets `XDG_CACHE_HOME=/local/vast/.cache` system-wide, so Hugging Face caches to `/local`, which sits on the root disk (`/dev/md0`, full: under 100 MB free, filled by other users). Downloads then fail with `No space left on device` / `Not enough disk space`, surfacing as `DownloadError` for a LightOn split. Export `HF_HOME=/home/vast/.cache/huggingface` (NFS, where the 28 GB of LightOn splits already are) for every dry run and real job on `zz`. `TMPDIR` does not matter.
+- **MIRACL must be prepared first.** Without the four MIRACL document stores, the training configs fail at planning with `OSError: No such file or directory`. Prepare them beforehand or set `preprocessing.blocking_download: true`.
+- **Planning loads all the training data.** Launching a training config makes the experiment manager download and generate the 42 LightOn splits (about 28 GB in `~/.cache/huggingface/datasets`, around 15 minutes the first time on `zz`).
+- **PLAID in phase 2** indexes the four full MIRACL corpora (about 74M passages) for 8 models. The index size has not been measured.
+- Not verified: that the exported reranker folder loads directly as `base` in phase 1; that the first-stage runs of `splade_first_stage.yaml` are reused by the training experiments.
+
+## What is left
+1. Step 5: finish the dry run of `mmbert_small_reranker.yaml`, then the ablation config. Phase 1 and phase 2 can only be dry-run once `base` points to a real model.
+2. Step 6: review gate (full diff and per-file summary).
+3. Push `2032181` and `a6d30a6`.
+4. Later: re-enable MLDR in the evaluation, decide on the Hub route for the reranker.
